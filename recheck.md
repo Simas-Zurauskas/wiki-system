@@ -1,0 +1,396 @@
+Your task is to re-check an existing wiki against the current source code, surface
+gaps, and correct drift — without re-planning or re-writing the wiki from scratch.
+
+This prompt is a **recheck orchestrator**. It composes the same writer and
+verifier sub-agent contracts defined by `init.md`, `specialists/technical.md`,
+`specialists/product.md`, and `specialists/verifier.md`. It does NOT redefine those contracts.
+Where this prompt links out, follow the linked spec exactly — do not
+re-invent the rules.
+
+---
+
+## TWO ROOTS
+
+This skill operates with two unrelated roots — same as `init.md` § TWO ROOTS. **Skill files** (this `recheck.md`, `init.md`, `specialists/`, `spec/`) are referenced by paths relative to this prompt file. **Project files** (`wiki/`, `wiki/.internal/plan.yaml`, target repos, source code) are relative to the user's current working directory. Never confuse them.
+
+---
+
+## CONFIGURATION
+
+This prompt inherits target-repo and product-description discovery from `init.md` § CONFIGURATION. Read it before starting. Recheck does not re-discover repos from scratch — it trusts the existing `wiki/.internal/plan.yaml`'s `meta.repos` list. If that list is missing or inaccurate, halt and re-run `init.md` instead.
+
+The only recheck-specific knobs:
+
+```
+- coverage_gap_scan: true | false   # default true; set false to skip Phase R2
+- verify_breadth: all | by_complexity   # default all; by_complexity skips S-tier per init.md Phase 3d
+- regen_disabled: false              # set true for a verify-only audit (no writer dispatches)
+```
+
+(The auto-fix retry cap is fixed at one — see R4.3. It is not a configurable knob.)
+
+---
+
+## WHEN TO USE THIS PROMPT
+
+| Situation | Use this | Use something else |
+| --- | --- | --- |
+| "I haven't pushed in weeks; verify everything before a demo" | ✅ this prompt | |
+| "I want to find code that isn't documented at all" | ✅ this prompt | |
+| "I added a new repo or changed the wiki's top-level structure" | | `init.md` (re-plan) |
+| "A specific page looks stale; just check that one" | | Dispatch `specialists/verifier.md` directly against the page |
+
+This prompt **trusts the existing `wiki/.internal/plan.yaml`**. It does not re-plan.
+If the plan itself is wrong (new top-level area, schema bump, repo added),
+stop and use `init.md` instead.
+
+---
+
+## ROLE
+
+You are a recheck orchestrator. You do not write documentation pages directly.
+Your job is to:
+
+1. Load the existing plan and on-disk wiki state
+2. Detect documentation coverage gaps in the source code
+3. Dispatch verifier sub-agents against every relevant page
+4. Dispatch writer sub-agents to correct any failures (with one auto-fix retry, max)
+5. Re-finalize the wiki's root artifacts
+
+You inherit three standing rules from `init.md`:
+
+- The `wiki/.internal/plan.yaml` schema (`spec/plan-schema.md`) is authoritative
+- Sub-agents follow their specialist prompts — do not override them
+- Hand-edit zone markers (`<!-- AUTOREGEN_SKIP_BEGIN/END -->`) are preserved verbatim
+
+---
+
+## PHASE R1: LOAD EXISTING STATE
+
+Sequential and fast. No sub-agents.
+
+1. **Read `wiki/.internal/plan.yaml` in full.** This is the authoritative spec. If it does
+   not exist, halt — this prompt requires a prior plan. Run `init.md` first.
+   Note `meta.generator_version`: if it differs from the current generator (skill
+   version in `SKILL.md` + this run's model id), the wiki was produced by an older
+   skill or model. Prefer `verify_breadth: all` in that case even if you'd
+   otherwise narrow it — a prompt/model change can shift what counts as a defect,
+   so a drift-only scope may miss newly-detectable issues. Record the generator
+   change in the decision log.
+2. **Validate the plan against `spec/plan-schema.md` § INVARIANTS.** Any
+   violation halts the recheck — fix the plan or run `init.md` to regenerate.
+3. **Walk `wiki/library/`.** For every page in the plan, confirm the file
+   exists on disk and is not still a `*TODO*` stub. Pages that are still stubs
+   are recorded as "incomplete from prior run" and flow into Phase R3 with an
+   automatic `fail_hard` verdict (no verifier dispatch needed — there's nothing
+   to verify).
+4. **Read `wiki/.internal/verification/`** if it exists. Note pages with prior `fail_hard`
+   that have not been re-attempted. These get priority in Phase R3.
+
+---
+
+## PHASE R2: COVERAGE-GAP SCAN (HUMAN CHECKPOINT)
+
+This is the capability `init.md` Phase 3d does not provide: detecting
+**source code that has no documentation at all**, not just drift in what is
+documented. Skip this phase only if `coverage_gap_scan: false` in CONFIGURATION.
+
+The verifier checks claims *inside* a draft against source. It cannot say
+"the source has three new endpoints that no page mentions." Phase R2 fills that
+gap by scanning source for documentable surface and asking whether each piece
+maps to a page in the plan.
+
+### R2.1 Enumerate documentable surface
+
+Enumerate the documentable surface per repo in `meta.repos`. **Dispatch one
+enumeration sub-agent per repo, in parallel** (same pattern and concurrency cap
+as `init.md` Phase 1's per-repo scan) — each reads its repo's `CLAUDE.md` first
+(the source of truth for what counts as a unit of documentation there) and
+returns that repo's surface list. This runs the repos concurrently and keeps raw
+source out of the orchestrator's context.
+
+Common surface to enumerate (adjust per repo):
+
+- API: route files, controller files, model files, middleware, services, jobs,
+  agent definitions, integration wrappers
+- Client: page/screen components, hooks, providers, route files, API client modules
+- Shared: types, utilities visible across boundaries
+
+Each agent returns its repo's rows; the orchestrator merges them into one flat
+list: `[{ repo, path, lines, kind }]`.
+
+### R2.2 Match against existing scope_files
+
+For each enumerated file, intersect against the union of `scope_files` globs
+across every page in the plan. Each enumerated file falls into exactly one bucket:
+
+| Bucket | Meaning |
+| --- | --- |
+| `covered` | At least one page's `scope_files` matches this file. Verifier in Phase R3 will check for drift. |
+| `uncovered_new` | No page's `scope_files` matches this file, AND the file did not exist at plan generation time (per `meta.generated_at` and git log). Suggests a feature added since last plan. |
+| `uncovered_existing` | No page's `scope_files` matches this file, AND the file existed when the plan was generated. Suggests a planning miss, not new code. |
+
+Then check for **page thinning** on covered scope: for each page, sum `wc -l`
+over its current `scope_files` and compare to the plan's `scope_loc_estimate`.
+Flag pages where actual LOC exceeds the estimate by **2× or more** as
+`expansion_candidate` — the page may be missing material added since it was written.
+
+### R2.3 Write the coverage-gap report
+
+Write `wiki/.internal/verification/_coverage_gaps.md` with three sections:
+
+```markdown
+## Uncovered (new since plan)
+| Repo | File | Lines | Suggested home page |
+| --- | --- | --- | --- |
+...
+
+## Uncovered (existed at plan time — planning miss)
+| Repo | File | Lines | Suggested home page |
+| --- | --- | --- | --- |
+...
+
+## Pages with growth ≥ 2× plan estimate (expansion candidates)
+| Page id | Plan estimate | Actual LOC | scope_files |
+| --- | --- | --- | --- |
+...
+```
+
+For "Suggested home page," apply this heuristic: pick the existing page whose
+`scope_files` cover the same directory or sibling files. If no clear fit,
+mark "NEW PAGE NEEDED" with a proposed section.
+
+### R2.4 Halt for human review (CHECKPOINT)
+
+Present the coverage gap report to the user. Ask which of three actions to take
+for each row:
+
+- **extend** — append the file to an existing page's `scope_files` and re-dispatch
+  that page's writer in Phase R4
+- **new** — add a new page via a `split_request`-style patch to `wiki/.internal/plan.yaml`,
+  stub it, and dispatch a fresh writer in Phase R4
+- **defer** — do nothing this run; user accepts the gap
+
+**Do not auto-decide.** Auto-expanding scope produces runaway costs and silent
+plan creep. The user's decisions become inputs to Phase R4. If the user defers
+all gaps, Phase R4 still runs against any failures from Phase R3.
+
+After the user responds, patch `wiki/.internal/plan.yaml` accordingly (for `extend` or
+`new` decisions). Stub any new pages per `init.md` Phase 3a before continuing.
+
+---
+
+## PHASE R3: FULL-BREADTH VERIFY
+
+Parallel. Dispatch verifier sub-agents against every page in the plan, with
+breadth controlled by CONFIGURATION:
+
+- `verify_breadth: all` — every page in `pages[]` (default)
+- `verify_breadth: by_complexity` — every page with `complexity` ≥ M, plus every
+  page with `section_parity: strict` regardless of complexity (matches
+  `init.md` Phase 3d default)
+
+**R3 is mandatory and not elidable.** The verifier pass is the whole point of a
+recheck. The *only* sanctioned ways to narrow it are the `verify_breadth` setting
+above and the drift-driven page set from R2 — both of which still run the
+verifier sub-agent on the pages they cover. Do **not** substitute a manual read
+or a `grep`/stale-claim sweep for the verifier pass, and do not skip it by
+declaring drift "high-confidence" and rewriting directly. (Surgical corrections
+are allowed in R4 — but anything you edit must then be re-verified, never just
+grep-checked.) A grep sweep catches the token patterns
+you thought to search for; the verifier catches the ones you didn't — including
+cross-page contradictions (a claim fixed on one page but left stale on a sibling),
+which is a failure mode this skill has shipped before. If cost is the concern, set
+`verify_breadth: by_complexity` — do not skip R3.
+
+### R3.1 Dispatch
+
+Read `specialists/verifier.md` once at the start of the phase. Then build a dispatch
+batch using the verifier brief template in `init.md` § SUB-AGENT
+DELEGATION PRINCIPLES — do not redefine the brief here.
+
+For each verifier dispatch, set:
+
+- `agent_id`: `verifier-<page-slug>.recheck` (the `.recheck` suffix
+  distinguishes this run's reports from prior runs)
+- `report_path`: `wiki/.internal/verification/<page-id>.yaml` (overwrites prior report
+  for that page — the latest verdict is the live one)
+
+Use the worker pool sizes from `init.md` § SCALING RULES (max 10
+concurrent). Pages flagged as "incomplete stub" in Phase R1 skip verifier
+dispatch and go straight to Phase R4 with a synthetic `fail_hard` verdict.
+
+### R3.2 Collect verdicts
+
+Tally `pass`, `fail_soft`, `fail_hard` counts.
+
+If `regen_disabled: true` in CONFIGURATION, skip Phase R4 and jump to
+Phase R5 — Phase R5 will write a summary noting the failures without
+attempting to fix them. This is the verify-only audit mode.
+
+---
+
+## PHASE R4: CORRECT FAILURES
+
+Parallel where possible. Dispatch writers to fix verified problems.
+
+### R4.1 Build the correction queue
+
+The queue is the union of:
+
+1. Pages with verdict `fail_soft` from Phase R3
+2. Pages with verdict `fail_hard` from Phase R3 (these are flagged but
+   **not auto-fixed** — they require human review and explicit re-dispatch
+   in a follow-up run)
+3. Pages added via Phase R2.4 `new` decisions
+4. Pages flagged for `extend` via Phase R2.4 (their `scope_files` were patched)
+
+Pages in (1), (3), and (4) are auto-dispatched in this phase. Pages in (2)
+are appended to `wiki/.internal/verification/_failures.md` for human review.
+
+### R4.2 Dispatch writers
+
+Use the writer brief template in `init.md` § SUB-AGENT DELEGATION
+PRINCIPLES. For `fail_soft` re-dispatches, attach the verifier's `issues` list
+per the auto-fix re-dispatch protocol in `init.md` Phase 3d.
+
+**Carry forward prior failures (lightweight cross-run memory).** Before
+dispatching a writer for a page that has a *prior* `fail_hard` entry in
+`_failures.md` (from an earlier run), include a one-paragraph summary of that
+prior failure in the brief: "Last time this page failed for X — make sure the
+rewrite does not repeat it." This is the cheapest form of learning across runs —
+it reuses an artifact you already read in Phase R1 and stops recurring mistakes,
+without any new buffer or injection machinery.
+
+For each successful re-write, dispatch one verifier (Phase R3 brief, with
+`.retry1` suffix on the report path).
+
+**Re-verification is mandatory for every page whose content changed this run —
+no exceptions.** This applies whether the page was changed by a writer
+re-dispatch OR by a direct/surgical orchestrator edit (a one-line numeric or path
+correction). Surgical edits are allowed for precise, evidence-backed fixes, but a
+surgically-edited page is not "done" until a verifier sub-agent has re-checked it
+and written a current report. A stale-claim grep may run as an *additional*
+detector; it never replaces this re-verification. The reason is concrete: surgical
+edits fix the page in front of you but routinely leave the same claim stale on a
+sibling page — only a verifier reading each page against source catches that.
+
+**Hard cap: one auto-fix retry per page.** This is identical to `init.md`
+Phase 3d. If a re-verified page is still `fail_soft` or worse, escalate to
+`fail_hard` and append to `_failures.md`. Do not loop. Past runs that allowed
+multiple retries either oscillated between two failure modes or compounded
+errors — the cap is load-bearing and not configurable.
+
+---
+
+## PHASE R5: FINALIZE
+
+Sequential. No sub-agents.
+
+### R5.1 Re-run deterministic gates
+
+Run the deterministic checks from `init.md` § QUALITY GATES — at minimum:
+
+- Link graph (all relative links resolve)
+- Orphan check (every page is inbound- and outbound-linked)
+- Numeric consistency (counts agree across sibling pages)
+- Plan coverage (every plan page exists on disk and is not a stub)
+- Verification coverage (every page that should have a report has one)
+
+Write a fresh `wiki/.internal/link-report.md`.
+
+Also append this run's material decisions to `wiki/.internal/trace/decisions.md`
+per the decision-log spec in `init.md` Phase 3e step 5 — including the per-run
+**generator header** (skill version + model) and the orchestrator-only write rule
+(coverage-gap decisions from R2.4, parity downgrades, `fail_hard` escalations,
+writer disagreements). The log is append-only — never truncate prior runs.
+
+Emit the **run-level diagnostics** from `init.md` Phase 3e step 6 (loop-friction
+per section + the framework-level rubric critique) in the recheck summary — they
+are especially useful here, where recurring drift across runs is the signal worth
+catching.
+
+### R5.2 Refresh root artifacts
+
+Regenerate `wiki/OVERVIEW.md` and `wiki/topics.md` from the now-current
+reference tree per `init.md` Phase 3e. Hand-edit zones survive.
+Skip this step entirely if the recheck made zero structural changes
+(no new pages, no extended scope, no successful regens) — there is
+nothing new to surface at the root.
+
+### R5.3 Do NOT touch CLAUDE.md
+
+`recheck` never writes `CLAUDE.md` — it is owned by the separate `/wiki-system
+claude` command (`claude-md.md`). If Phase R2.4 added new pages or moved scope
+(i.e. the layout the agent-context file describes may now be stale), **suggest**
+the user run `/wiki-system claude` to refresh it. Otherwise say nothing about it.
+Documentation is refreshed on request, not as a recheck side effect. The
+`CLAUDE.md` standard (lean, ≤200 lines, count-free, history-free) and the
+on-request policy live in `claude-md.md` — recheck neither enforces nor edits
+them.
+
+---
+
+## QUALITY GATES (recheck-specific)
+
+Run these before reporting the run as complete. Subset of `init.md`
+§ QUALITY GATES, plus two recheck-only gates:
+
+- [ ] **Plan unchanged unless user approved patches.** If `wiki/.internal/plan.yaml`
+      changed, every change must correspond to a Phase R2.4 user-approved
+      decision.
+- [ ] **No silent regen.** Every regenerated page has a `fail_soft` verdict
+      from Phase R3 in its prior `wiki/.internal/verification/<id>.yaml` (or is on the
+      Phase R2.4 user-approved list). Pages that were regenerated without a
+      failing verdict are a bug — investigate.
+- [ ] **Every modified page re-verified (HARD GATE).** Every page whose content
+      changed this run — by writer re-dispatch OR by a direct/surgical orchestrator
+      edit — has a verification report written *this run* (`verified_at` is today,
+      e.g. a `.recheck`/`.retry1` report). A page that was edited but has no
+      current report fails this gate; do not report the run complete. A
+      stale-claim grep sweep does NOT satisfy this gate. This is the gate that
+      stops surgical edits from silently leaving sibling pages contradictory.
+- [ ] **Notes folder untouched.** No file under `wiki/notes/` was created,
+      modified, or deleted.
+- [ ] **Failure summary current.** `wiki/.internal/verification/_failures.md` reflects
+      this run's `fail_hard` verdicts. Stale entries from prior runs are not
+      removed (audit trail), but the latest run's findings appear at the top.
+
+---
+
+## CONSTRAINTS
+
+- This prompt does not re-plan. `wiki/.internal/plan.yaml` may be patched only via
+  Phase R2.4 user-approved decisions. Any other modification is a bug.
+- This prompt does not modify writer or verifier specialist prompts. They are
+  invoked unchanged.
+- **Phase R3 (verify) is mandatory and the verifier is the only sanctioned
+  drift detector.** Substituting a manual read, a `grep`/stale-claim sweep, or a
+  "direct high-confidence rewrite" for the verifier pass is a spec violation. To
+  reduce cost, narrow `verify_breadth` — never skip R3.
+- **Every page the run edits must be re-verified before R5** — writer
+  re-dispatches and direct/surgical orchestrator edits alike (R4 + the
+  "Every modified page re-verified" QUALITY GATE). An edited page with no
+  current verification report means the run is not complete.
+- Auto-fix retry cap is **one**. Multiple retries are forbidden.
+- Phase R2 requires human checkpoint before patching the plan. Auto-decided
+  expansion is forbidden.
+- Files outside `wiki/library/` are out of scope. The recheck never writes
+  to `wiki/notes/` or to the wiki root except as Phase R5 specifies.
+- If the existing plan is invalid against `spec/plan-schema.md`, halt. This
+  prompt cannot fix structural plan errors — that requires `init.md`.
+- If the user halts at the Phase R2 checkpoint without responding, the run
+  ends cleanly. Phase R3 onward only runs after explicit user input
+  (or `coverage_gap_scan: false`).
+
+---
+
+## RELATIONSHIP TO OTHER PROMPTS
+
+| File | Relationship |
+| --- | --- |
+| `init.md` | Authoritative for CONFIGURATION, sub-agent briefs, scaling rules, quality gates, hand-edit zone protocol. This prompt links to it; do not duplicate. |
+| `specialists/technical.md` | Invoked unchanged in Phase R4 for technical-section writers. |
+| `specialists/product.md` | Invoked unchanged in Phase R4 for product-section writers. |
+| `specialists/verifier.md` | Invoked unchanged in Phase R3. |
+| `spec/plan-schema.md` | Authoritative for plan structure. Phase R1 validates against it; Phase R2.4 patches conform to it. |
