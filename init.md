@@ -250,7 +250,7 @@ wiki/
 │   ├── link-report.md         ← link graph check output (Phase 3e)
 │   ├── verification/          ← verifier YAML reports (Phase 3d, one per page)
 │   │   ├── <page-id>.yaml
-│   │   └── _failures.md       ← human-readable summary of fail_hard verdicts
+│   │   └── _failures.md       ← structured entries (YAML frontmatter + prose) for fail_hard verdicts and their user-recorded resolutions; see spec/plan-schema.md § _failures.md SCHEMA
 │   └── trace/                 ← per-run decisions log + JSONL traces
 │       └── decisions.md
 ├── OVERVIEW.md                ← orchestrator-generated in Phase 3e (finalize)
@@ -427,14 +427,20 @@ Present the final plan and wait for confirmation before proceeding to execution.
 
 ## PHASE 3: EXECUTE
 
-Execute in five ordered sub-phases:
+Execute in six ordered sub-phases (3d.5 fires only when Phase 3d produced queued `fail_hard` pages):
 
 1. **3a — Stub-out** (sequential, fast): create `*TODO*` stubs for every planned page.
 2. **3b — Technical writers** (parallel, per section).
 3. **3c — Product writers** (parallel with 3b, per section).
 4. **3d — Verify** (parallel, after all writers finish): run verifier sub-agents
-   against every written page; auto-fix `fail_soft` verdicts, log `fail_hard`.
-5. **3e — Finalize** (sequential): generate `wiki/OVERVIEW.md` and
+   against every written page; auto-fix `fail_soft` verdicts; escalate
+   surviving failures via tier-2 strong verifier; queue any remaining
+   `fail_hard` pages for the user gate.
+5. **3d.5 — User resolution gate** (sequential, conditional): if Phase 3d
+   queued any `fail_hard` pages, halt for batched user resolution (regen /
+   patch / shrink / accept / delete / defer) before finalizing. Skipped
+   when the queue is empty.
+6. **3e — Finalize** (sequential): generate `wiki/OVERVIEW.md` and
    `wiki/topics.md`, run deterministic checks, then **suggest `/wiki-system
    claude`** (init does not write `CLAUDE.md`). Both
    root files are produced from the now-complete reference tree — the
@@ -581,7 +587,7 @@ Dispatch the whole batch at once and collect verdicts as they return.
 | ------------ | ------------------------------------------------------------------------------- |
 | `pass`       | Page is accepted — but see the suspect-pass check below.                         |
 | `fail_soft`  | Re-dispatch the original writer **once** with the verifier's `recommendations` list attached to the brief. If the re-run produces another `fail_soft` or worse, escalate to `fail_hard`. |
-| `fail_hard`  | Page is flagged. Append to `wiki/.internal/verification/_failures.md` with a human-readable summary. Do not auto-fix. Phase 3e (Finalize) may proceed; failures are reported in the final summary. |
+| `fail_hard`  | Run the tier-2 verifier escalation below (if configured). If still failing, append a structured entry to `wiki/.internal/verification/_failures.md` (see `spec/plan-schema.md` § `_failures.md` SCHEMA) and queue the page for the **Phase 3d.5 user resolution gate**. The run does not advance to Phase 3e until every queued page has a recorded resolution. |
 
 **Suspect-pass check (calibration gate).** A `pass` whose report shows
 `stats.resolved == 0` on a `complexity ≥ M` page is suspicious — the verifier
@@ -617,9 +623,167 @@ will check that each previously-flagged issue is resolved.
 ```
 
 **No infinite loops.** A page gets at most one auto-fix retry. If the second
-verification still fails, mark `fail_hard` and move on.
+verification still fails, the page enters tier-2 escalation below; if tier-2
+does not rescue it, mark `fail_hard` and queue it for Phase 3d.5.
 
-### Phase 3e — Finalize (after Phase 3d completes)
+**Tier-2 verifier escalation (before declaring `fail_hard`).** When a page is
+about to be marked `fail_hard` (the retry's verifier verdict was `fail_soft`
+or worse, OR the original verdict carried any `critical` issue), dispatch
+**one** additional verifier pass using a stronger-model verifier — see the
+`strong_verifier_model` slot in CONFIGURATION. The brief is identical to the
+Phase 3d verifier brief; only the model differs. Write its report to
+`wiki/.internal/verification/<page-id>.tier2.yaml`.
+
+- If tier-2 returns `pass` → accept the page. Append a "rescued by tier-2
+  verifier" line to `wiki/.internal/trace/decisions.md` (calibration signal —
+  the base-model verifier was wrong, useful when reviewing verifier prompt
+  drift).
+- If tier-2 returns anything else → declare `fail_hard` and queue for
+  Phase 3d.5.
+- If no `strong_verifier_model` is configured (or it equals the base verifier
+  model), skip tier-2 — there is no model gap to exploit. The published
+  finding this rests on (Kang et al., NAACL 2024 — *Small LMs Need Strong
+  Verifiers*) only holds when the verifier is *stronger* than the writer;
+  same-model re-verification reproduces correlated errors.
+
+Tier-2 runs at most once per page per run. It does not consume the writer's
+retry budget; it is a verifier-only escalation. Pages rescued by tier-2 do
+not enter `_failures.md`.
+
+**Oscillation signal.** When recording the queued `fail_hard` entry, compute
+whether the issue categories differed between the original verifier report
+and the retry's report (status types overlap < 50%, or no overlap in
+`issues[].evidence` file paths). If so, set `oscillation_signal: true` in the
+entry — it informs the user's resolution choice (writer-flailing pages are
+better candidates for `delete_page` or `patch_scope` than another regen).
+
+### Phase 3d.5 — Resolve `fail_hard` pages (USER CHECKPOINT)
+
+If Phase 3d (including tier-2) produced zero queued `fail_hard` pages, skip
+this phase entirely and proceed to Phase 3e.
+
+Otherwise, the run is **not complete** until every `fail_hard` page from this
+run has a user-recorded resolution. Present the failures to the user in **one
+batch** (not per-page interrupts as they occur — research on HITL agent
+oversight finds inline prompts reduce reviewer trust and accuracy; batched
+end-of-run review with structured choices is the consensus shape).
+
+**Per page, surface to the user:**
+
+- `page_id` and `page_path`
+- A summary paragraph: top 1–3 issues from the base verifier report (the
+  `claim` + `evidence` excerpts — do not dump the full YAML), the verdict
+  reason, whether the page oscillated, whether tier-2 was attempted and what
+  it returned
+- The resolution menu — offer only the options that apply (see Availability
+  column)
+
+**Resolution menu** (per page):
+
+| Option | Effect | Availability |
+|---|---|---|
+| `regen_with_context` | User provides extra hint or correction. Orchestrator re-dispatches the writer with the prior failure summary + the user's hint, then re-verifies. | Always. |
+| `patch_scope` | User specifies files to add or remove from `scope_files`. Orchestrator patches `wiki/.internal/plan.yaml`, re-stubs the page, re-dispatches the writer, then re-verifies. | Always. |
+| `scope_shrink_stub` | Orchestrator narrows the page's scope to the verified-clean sections. Dropped sections become a "needs human writeup" stub block fenced by `<!-- AUTOREGEN_SKIP_BEGIN/END -->` markers. | Available when the page has ≥2 distinct `page_location` headings AND ≥1 heading is issue-free. Hidden for atomic pages (no headings) and for pages where every heading carries an issue — those have no clean section to keep. |
+| `accept_with_banner` | Page ships as-is. Orchestrator wraps the flagged sections (or the whole page if not localized) in `<!-- AUTOREGEN_SKIP_BEGIN -->` / `<!-- AUTOREGEN_SKIP_END -->` markers with a one-line banner: `> Human-accepted on YYYY-MM-DD despite verifier flag (run <id>).` Future verifiers ignore these blocks per the existing hand-edit-zone rule. | Always. |
+| `delete_page` | Page removed from `wiki/.internal/plan.yaml`; file deleted; sibling pages with `links_to` containing this id are patched (link removed) and re-verified per the existing "every modified page re-verified" hard gate. | Always — surface the count of sibling pages that link to it as a ripple warning before the user confirms. |
+| `defer` | Explicit defer. Entry stays in `_failures.md` with `resolution.status: deferred` and the date. Run completes; the page ships in its failing state. Next run's R1 surfaces deferred entries with priority. | Always. |
+
+**Re-dispatch budget after user action.** For `regen_with_context` and
+`patch_scope`, the writer + verifier run **once**. If the page still fails,
+**do not re-prompt the user** — record the final verdict as
+`fail_hard_post_user` in the entry's `resolution.outcome_verdict` and ship
+the page in whatever state it's in. The original "no infinite loops" rule
+applies to user-initiated rewrites too. The user can re-run the skill if
+they want another attempt; gate-time looping is exactly what the cap forbids.
+
+**`delete_page` ripples.** Patching sibling `links_to` may break the page
+graph (a sibling losing its only outbound link becomes an orphan). The
+orphan check runs in Phase 3e — it will surface any orphans created here.
+Do not block the gate on this; orphans are a finalize-phase concern.
+
+**`accept_with_banner` durability.** The banner block must be wrapped in
+`<!-- AUTOREGEN_SKIP_BEGIN -->` / `<!-- AUTOREGEN_SKIP_END -->` markers so
+(a) writers preserve it verbatim on future regens, (b) verifiers skip claim
+checks inside it. Future runs will NOT re-flag accepted blocks.
+
+- **Localized accept** (only the flagged sections wrapped): the rest of the
+  page continues to be verified normally. Set `resolution.accepted_until:
+  null` in the `_failures.md` entry.
+- **Whole-page accept** (no localizable issues — the entire page wrapped):
+  the page becomes effectively unverifiable. To prevent permanent dead
+  zones, **require** `resolution.accepted_until: <ISO date>` (default
+  prompt: today + 180 days). When the date passes, Phase R1 surfaces the
+  entry as a re-review candidate alongside deferred entries. The user can
+  re-accept (extending the date) or pick a different resolution.
+
+**`delete_page` is a structural change.** A `delete_page` resolution must
+force Phase 3e finalize to run even under the no-changes shortcut. Record
+this in the run's structural-changes ledger so R5.2 (in recheck) does not
+skip root-artifact regeneration. `OVERVIEW.md` and `topics.md` are
+regenerated from the now-current `wiki/library/` tree, which naturally
+drops any link to the deleted page.
+
+**`delete_page` ripple bound.** Sibling re-verification after a delete may
+itself produce new `fail_hard` verdicts. Cap ripple re-verification at
+**one round per gate sitting**: any new `fail_hard` produced is appended
+to `_failures.md` with `verdict_reason: "ripple from delete_page <id>"`,
+`resolution.status: deferred`, `resolution.user_note: "auto-deferred —
+created mid-gate, not interactively triaged"`, and surfaced loudly in the
+run summary. The user addresses ripple-deferred entries on the next run.
+This avoids re-presenting an updated gate batch mid-sitting (UX trap) and
+preserves the run-completion invariant.
+
+**Bulk-defer warning.** If the user resolves ≥3 entries as `defer` OR
+≥50% of the queue as `defer` (whichever fires first), emit a prominent
+warning in the run summary: "N of M failures deferred — this is the
+silent-accumulation risk the gate is designed to surface." Append a
+`bulk_defer: N of M, run <id>` line to `wiki/.internal/trace/decisions.md`.
+The run still completes (defer is terminal) but the bulk pattern is
+visible. Repeated bulk-defer runs are a calibration signal — either the
+verifier is over-strict or the documentation is genuinely under-resourced.
+
+**Decision-log entries.** At the end of Phase 3d.5, for every entry
+closed this gate, append one line to `wiki/.internal/trace/decisions.md`:
+`<run_id>  <page_id>  resolution=<status>  outcome=<outcome_verdict>`.
+This is the audit trail for what the user chose; the issue detail stays
+in the `_failures.md` entry.
+
+**`fail_hard_post_user` disk state.** When a `regen_with_context` or
+`patch_scope` retry produces another `fail_hard`, the page on disk is the
+**writer's last output** — the rewrite overwrote the prior content (full
+rewrites only, by writer policy). Users who want to preserve the prior
+content should choose `defer` (no re-dispatch) rather than
+`regen_with_context`. Document this in the gate UI when offering the
+menu.
+
+**Tier-2 dispatch failure.** If `strong_verifier_model` is configured but
+the dispatch errors out (model unavailable, rate limit, network), do not
+silently swallow it. Treat as `tier2_verdict: not_run`, include the
+failure reason in the `_failures.md` entry's `verdict_reason`, append a
+line to `wiki/.internal/trace/decisions.md`, and proceed to the gate. The
+user sees that tier-2 didn't run and why.
+
+**Prior-deferred re-fail.** When this run's verifier produces a fresh
+`fail_hard` for a page that has a prior `_failures.md` entry with
+`resolution.status: deferred`, **append a new entry** for this run — do
+not mutate the prior entry. The gate surfaces both side-by-side so the
+user can see whether it's the same failure mode (defer again or escalate
+to a different resolution) or a new one (failure has shifted, prior
+deferral no longer applies).
+
+**Updating `_failures.md`.** After every resolution decision, the
+orchestrator updates the entry's `resolution.*` fields in place per the
+`_failures.md` schema. This is the only mutation allowed on a closed entry.
+The page-summary prose below the frontmatter is never rewritten.
+
+**Skill-execution context.** "Present to the user" means an
+`AskUserQuestion`-style structured prompt presented by the orchestrator at
+gate time. The orchestrator is itself an agent running in Claude Code — the
+gate is implemented as a synchronous pause in the orchestrator's reasoning,
+not as a separate process or queue.
+
+### Phase 3e — Finalize (after Phase 3d, and Phase 3d.5 if it ran)
 
 **1. Generate `wiki/OVERVIEW.md`**
 
@@ -914,7 +1078,7 @@ each previously-flagged issue has been addressed in the rewritten page.}
 ### Reminder of verdicts (severity tiers: consideration | improvement | critical)
 - pass       — 0 critical AND 0 improvement issues (any number of consideration tolerated)
 - fail_soft  — 1–3 improvement issues, 0 critical; orchestrator will auto-fix once
-- fail_hard  — 4+ improvement issues OR any critical issue; orchestrator will log for review
+- fail_hard  — 4+ improvement issues OR any critical issue; orchestrator escalates to a tier-2 verifier (if configured), then queues for the Phase 3d.5 user resolution gate if not rescued
 
 Emit your YAML report to report_path, then return a final message (≤10 lines)
 with the verdict and top issues.
@@ -998,8 +1162,13 @@ results come from Phase 3d's verifier sub-agents.
       verified by default). If the run used the cost-opt-out scope, every page
       with `complexity` ≥ M plus every `section_parity: strict` page has a report.
 - [ ] **Verification verdicts.** No page carries a `fail_soft` verdict that
-      was not auto-fixed and re-verified. Pages with `fail_hard` are listed
-      in `wiki/.internal/verification/_failures.md` with a human-readable summary.
+      was not auto-fixed and re-verified. Every `fail_hard` page from this
+      run has a recorded user resolution (`regen_with_context` / `patch_scope` /
+      `scope_shrink_stub` / `accept_with_banner` / `delete_page` / `defer`)
+      in its `_failures.md` entry. Entries with `resolution.status: pending`
+      block this gate. `fail_hard_post_user` (a user-initiated re-attempt
+      that also failed) is a valid terminal state and does **not** block the
+      gate.
 - [ ] **Parity.** Every page with `section_parity: strict` has existing
       counterparts in all sibling sections.
 - [ ] **Technical grounding.** Technical docs reference specific files,
@@ -1031,20 +1200,27 @@ results come from Phase 3d's verifier sub-agents.
   `<!-- AUTOREGEN_SKIP_END -->` markers verbatim. The orchestrator instructs
   writers to never modify content inside these markers; verifiers treat the
   content inside as authoritative and skip claim verification there.
-- The verifier is the only quality gate. There is no human-confirm step.
-  Verdict semantics:
+- The verifier is the first-line quality gate. There is no per-page
+  human-confirm step inside Phase 3d; the human checkpoint is the batched
+  Phase 3d.5 gate, which fires only when at least one page reaches
+  `fail_hard` after tier-2 escalation. Verdict semantics:
   - `pass` — page is accepted as-is.
   - `fail_soft` — orchestrator re-dispatches the writer once with the issue
-    list. Re-verify. If still `fail_soft`, escalate to `fail_hard`.
-  - `fail_hard` — page is flagged and **not auto-fixed**. Append to
-    `wiki/.internal/verification/_failures.md` for human review.
+    list. Re-verify. If still `fail_soft` or worse, run the tier-2 verifier
+    (if configured); if tier-2 does not return `pass`, escalate to
+    `fail_hard`.
+  - `fail_hard` — page enters the Phase 3d.5 user resolution gate. The run
+    does not complete until the user records a resolution (regen / patch /
+    shrink / accept / delete / defer) for every `fail_hard` page from this
+    run.
 - `wiki/.internal/plan.yaml` must exist on disk and be approved before Phase 3 begins
 - The plan must match the schema in `spec/plan-schema.md` and satisfy every
   invariant listed there
 - No writer runs before stubs exist for every page it links to
 - No parent section OVERVIEW.md is written until all its child pages are done
 - No verifier runs before its assigned page's writer has finished
-- No page receives more than one auto-fix retry after a `fail_soft` verdict
+- No page receives more than one auto-fix retry after a `fail_soft` verdict. User-initiated rewrites at the Phase 3d.5 gate are likewise bounded to one — a `regen_with_context` or `patch_scope` that still fails terminates as `fail_hard_post_user` and is not re-prompted in the same run
+- Tier-2 verifier escalation runs at most once per page per run; it is a verifier-only escalation and does not count against the writer's retry budget
 - Sub-agents follow their specialist prompt fully — the orchestrator does not override
   the specialist prompt's process, quality criteria, or writing standards
 - Writers that discover their scope exceeds the plan return a `split_request` and

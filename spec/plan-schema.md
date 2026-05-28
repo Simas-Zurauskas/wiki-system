@@ -240,6 +240,119 @@ central subject is `critical`, a material secondary gap `improvement`. See
 
 ---
 
+## _failures.md SCHEMA
+
+`wiki/.internal/verification/_failures.md` is human-readable but
+machine-parseable. Each `fail_hard` entry is a markdown section preceded by
+a YAML frontmatter fence so the orchestrator's resolution gate
+(`init.md` Phase 3d.5 / `recheck.md` R4.3) can read entries back
+deterministically.
+
+````markdown
+---
+page_id: <plan slug>
+page_path: wiki/library/<slug>.md
+run_id: <ISO-8601 timestamp of the run that produced the failure>
+verdict: fail_hard | fail_hard_post_user
+verdict_reason: "<short string — e.g. '1 critical issue', '5 improvement issues', 'writer–verifier disagreement', 'incomplete stub'>"
+tier2_attempted: true | false
+tier2_verdict: pass | fail_soft | fail_hard | not_run
+oscillation_signal: true | false       # issue categories differed across attempts
+top_issues:                            # capped at 5 entries; severity desc then page_location-diverse
+  - status: <verifier status>
+    severity: <verifier severity>
+    claim: "<one-line excerpt>"
+    page_location: "<heading or line>"
+    evidence: "<file:line or 'not found in scope_files'>"
+prior_entry_count: <integer>           # how many prior _failures.md entries this page already has
+resolution:
+  status: pending | regenerated | patched | shrunken | accepted | deleted | deferred
+  decided_at: <ISO-8601 timestamp, or null while pending>
+  user_note: "<free-text from the user, optional>"
+  outcome_verdict: pass | fail_hard_post_user | n/a
+  # n/a is correct for accepted / deleted / deferred (no re-verification ran)
+  accepted_until: <ISO date | null>    # REQUIRED when status == accepted AND the whole page was wrapped (not a localized section). Null when only a localized section was wrapped. On expiry, R1 surfaces the entry as a re-review candidate.
+---
+
+### <Page id or title>
+
+<one-paragraph human-readable summary — same content as the verifier's final
+message, kept here for skim-reading without parsing the frontmatter>
+````
+
+**Invariants:**
+
+- The file is **append-only for entries** — never truncate or rewrite past
+  entries. Old free-prose entries from before this schema landed remain
+  readable but are not parsed by the gate; new entries must use frontmatter.
+- The orchestrator updates `resolution.*` fields in place when the user
+  decides on a pending entry. This is the **only** mutation allowed on a
+  closed entry; the page-summary prose below the frontmatter is never
+  rewritten.
+- `resolution.status: pending` blocks run completion (see `../init.md`
+  QUALITY GATES "Verification verdicts" and `../recheck.md` "Failures
+  triaged"). Every other status is terminal for the run.
+- `deferred` is the explicit "I'll deal with it later" choice. The next
+  run's R1 surfaces deferred entries with priority.
+- `fail_hard_post_user` records a user-initiated re-attempt
+  (`regen_with_context` or `patch_scope`) that also failed. The entry is
+  closed; the page ships in its failing state. The user can re-run the
+  skill if they want another attempt; gate-time looping is forbidden by
+  the same retry-cap rule that governs auto-fix.
+- `accepted` and `deleted` carry no `outcome_verdict` (`n/a`). For
+  `accepted`, the page-on-disk has been wrapped in
+  `<!-- AUTOREGEN_SKIP_BEGIN/END -->` markers and ships as-is. For
+  `deleted`, the page file and its `plan.yaml` entry are gone; sibling
+  pages whose `links_to` referenced this id have been patched and
+  re-verified.
+- `shrunken` retains the page on disk with a stub block fenced by
+  `<!-- AUTOREGEN_SKIP_BEGIN/END -->` covering the dropped sections.
+  Available only when verifier issues localize to identifiable headings.
+- Entries from prior runs that already have a terminal `resolution.status`
+  are audit history — the current run does not re-prompt for them. Only
+  `pending` entries flow into the current run's gate. `deferred` entries
+  are surfaced in R1 for prioritization but do not auto-enter the gate
+  unless this run's verifier produces a fresh `fail_hard` for the same
+  page.
+- **Per-run entry rule.** When a page fails again in a new run, the
+  orchestrator **appends a new entry** for the new run — it does not
+  mutate the prior entry. The prior entry's `resolution.status` (deferred
+  / accepted / etc.) is preserved as-is. The new entry's
+  `prior_entry_count` reflects the count of all prior entries for that
+  `page_id`, and the gate presents the new entry alongside the most
+  recent prior entry's summary so the user sees whether the failure mode
+  changed.
+- **Synthetic-stub entries.** When a page is an incomplete stub from a
+  prior run (R1 detects this; the verifier is not dispatched), the
+  orchestrator creates a synthetic entry with `verdict_reason: "incomplete
+  stub"` and a single `top_issues` entry: `status: scope_gap`, `severity:
+  critical`, `claim: "Page was never written (stub from prior run)"`,
+  `evidence: "<page_path>:1"`, `recommendation: "Dispatch writer with
+  scope or delete page"`. `tier2_attempted: false`, `tier2_verdict:
+  not_run`.
+- **Tier-2 dispatch failure.** If `strong_verifier_model` is configured
+  but tier-2 dispatch fails (rate limit, model unavailable, network),
+  set `tier2_attempted: true`, `tier2_verdict: not_run`, and include the
+  dispatch failure reason in `verdict_reason` (e.g.
+  `"5 improvement issues; tier-2 dispatch failed: rate_limit"`). The
+  page proceeds to the gate; the failure is also recorded in
+  `wiki/.internal/trace/decisions.md`.
+- **`top_issues` cap.** At most 5 entries, selected by `severity` desc
+  (critical first), then by `page_location` diversity (no two from the
+  same heading). The full issue set remains in the per-page YAML report
+  at `wiki/.internal/verification/<page-id>.yaml`.
+
+**Consumers:**
+
+- The Phase 3d.5 / R4.3 user resolution gate reads the queue of pending
+  entries from this file and presents them to the user.
+- Phase R1 of `recheck.md` reads `deferred` entries for next-run prioritization.
+- The decision log (`wiki/.internal/trace/decisions.md`) records terminal
+  resolutions for audit, but does not duplicate the issue detail — the
+  `_failures.md` entry is the authoritative store.
+
+---
+
 ## WORKER RETURN SCHEMA
 
 A writer sub-agent's final message is machine-read by the orchestrator. It

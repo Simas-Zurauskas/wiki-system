@@ -223,12 +223,17 @@ contribute to the verdict — `resolved` is calibration data, not a problem.
   the rewrite. If still `fail_soft` (or worse), escalate to `fail_hard`.
   A page never receives more than one auto-fix retry.
 - **fail_hard** — 4+ `improvement` issues, OR any `critical` issue. The
-  page is flagged and **not auto-fixed**. Append to
-  `wiki/.internal/verification/_failures.md` for human review.
+  orchestrator escalates the page via a tier-2 strong-model verifier (if
+  configured); pages that survive tier-2 unrescued enter the orchestrator's
+  end-of-run user resolution gate (`../init.md` Phase 3d.5 / `../recheck.md`
+  R4.3). You do not write to `_failures.md` directly — the orchestrator does
+  that with a structured entry per `../spec/plan-schema.md` § `_failures.md`
+  SCHEMA.
 
-The verifier is the only quality gate before a page is accepted. There is no
-human-confirm step. Calibrate severity honestly — your verdict directly controls
-whether a page is accepted as-is, regenerated, or flagged for human review.
+The verifier is the first-line accuracy gate. The user gate fires only when
+a page reaches `fail_hard` after tier-2 — most pages never trigger it.
+Calibrate severity honestly: under-calling lets real errors ship; over-calling
+forces user-gate triage on clean pages and erodes trust in the gate.
 
 ### Step 6 — Write the YAML report
 

@@ -27,7 +27,7 @@ The only recheck-specific knobs:
 - regen_disabled: false              # set true for a verify-only audit (no writer dispatches)
 ```
 
-(The auto-fix retry cap is fixed at one — see R4.3. It is not a configurable knob.)
+(The auto-fix retry cap is fixed at one — see R4.2. It is not a configurable knob. After the cap, surviving failures route through tier-2 verifier escalation and, if still failing, the R4.3 user resolution gate.)
 
 ---
 
@@ -84,8 +84,12 @@ Sequential and fast. No sub-agents.
    are recorded as "incomplete from prior run" and flow into Phase R3 with an
    automatic `fail_hard` verdict (no verifier dispatch needed — there's nothing
    to verify).
-4. **Read `wiki/.internal/verification/`** if it exists. Note pages with prior `fail_hard`
-   that have not been re-attempted. These get priority in Phase R3.
+4. **Read `wiki/.internal/verification/`** if it exists. Parse
+   `_failures.md` per the schema in `spec/plan-schema.md` § `_failures.md`
+   SCHEMA. Pages with `resolution.status: deferred` (or `pending` from an
+   aborted prior run) get priority in Phase R3. Entries with terminal
+   statuses (`regenerated`, `patched`, `shrunken`, `accepted`, `deleted`,
+   `fail_hard_post_user`) require no action — they are audit history.
 
 ---
 
@@ -224,9 +228,18 @@ dispatch and go straight to Phase R4 with a synthetic `fail_hard` verdict.
 
 Tally `pass`, `fail_soft`, `fail_hard` counts.
 
-If `regen_disabled: true` in CONFIGURATION, skip Phase R4 and jump to
-Phase R5 — Phase R5 will write a summary noting the failures without
-attempting to fix them. This is the verify-only audit mode.
+**Apply the suspect-pass calibration rule** from `init.md` Phase 3d: a
+`pass` whose report shows `stats.resolved == 0` on a `complexity ≥ M`
+page is re-dispatched to the verifier once. If it still returns `pass`
+with `resolved == 0`, accept the page but record it under a
+"Low-confidence passes" heading in `_failures.md` (free-prose audit
+section — does not enter the gate queue, does not block run completion).
+S-tier pages with legitimately few claims are not gated.
+
+If `regen_disabled: true` in CONFIGURATION, skip Phase R4 (including
+R4.3) and jump to Phase R5 — Phase R5 will write a summary noting the
+failures without attempting to fix them. This is the verify-only audit
+mode.
 
 ---
 
@@ -239,14 +252,15 @@ Parallel where possible. Dispatch writers to fix verified problems.
 The queue is the union of:
 
 1. Pages with verdict `fail_soft` from Phase R3
-2. Pages with verdict `fail_hard` from Phase R3 (these are flagged but
-   **not auto-fixed** — they require human review and explicit re-dispatch
-   in a follow-up run)
+2. Pages with verdict `fail_hard` from Phase R3 — these are queued for the
+   **R4.3 user resolution gate** at the end of this phase; they are not
+   auto-dispatched by R4.2
 3. Pages added via Phase R2.4 `new` decisions
 4. Pages flagged for `extend` via Phase R2.4 (their `scope_files` were patched)
 
-Pages in (1), (3), and (4) are auto-dispatched in this phase. Pages in (2)
-are appended to `wiki/.internal/verification/_failures.md` for human review.
+Pages in (1), (3), and (4) are auto-dispatched in R4.2. Pages in (2), and
+any (1) page that escalates to `fail_hard` after its retry + tier-2
+verifier, flow into R4.3.
 
 ### R4.2 Dispatch writers
 
@@ -254,13 +268,15 @@ Use the writer brief template in `init.md` § SUB-AGENT DELEGATION
 PRINCIPLES. For `fail_soft` re-dispatches, attach the verifier's `issues` list
 per the auto-fix re-dispatch protocol in `init.md` Phase 3d.
 
-**Carry forward prior failures (lightweight cross-run memory).** Before
-dispatching a writer for a page that has a *prior* `fail_hard` entry in
-`_failures.md` (from an earlier run), include a one-paragraph summary of that
-prior failure in the brief: "Last time this page failed for X — make sure the
-rewrite does not repeat it." This is the cheapest form of learning across runs —
-it reuses an artifact you already read in Phase R1 and stops recurring mistakes,
-without any new buffer or injection machinery.
+**Carry forward prior failures (lightweight cross-run memory).** Whenever
+a writer is dispatched against a page that has a prior `fail_hard` entry
+in `_failures.md` from an earlier run — whether the dispatch is the R4.2
+auto-fix retry OR the R4.3 user-initiated `regen_with_context` /
+`patch_scope` — include a one-paragraph summary of the most recent prior
+failure in the brief: "Last time this page failed for X — make sure the
+rewrite does not repeat it." This is the cheapest form of learning across
+runs — it reuses an artifact you already read in Phase R1 and stops
+recurring mistakes, without any new buffer or injection machinery.
 
 For each successful re-write, dispatch one verifier (Phase R3 brief, with
 `.retry1` suffix on the report path).
@@ -276,10 +292,37 @@ edits fix the page in front of you but routinely leave the same claim stale on a
 sibling page — only a verifier reading each page against source catches that.
 
 **Hard cap: one auto-fix retry per page.** This is identical to `init.md`
-Phase 3d. If a re-verified page is still `fail_soft` or worse, escalate to
-`fail_hard` and append to `_failures.md`. Do not loop. Past runs that allowed
-multiple retries either oscillated between two failure modes or compounded
-errors — the cap is load-bearing and not configurable.
+Phase 3d. If a re-verified page is still `fail_soft` or worse, run the
+tier-2 verifier escalation (`init.md` Phase 3d — same spec; report path
+`wiki/.internal/verification/<page-id>.tier2.yaml`). If tier-2 returns
+`pass`, accept. Otherwise escalate to `fail_hard` and queue for R4.3. Do
+not loop. Past runs that allowed multiple writer retries either oscillated
+between two failure modes or compounded errors — the cap is load-bearing
+and not configurable.
+
+### R4.3 User resolution gate (CHECKPOINT)
+
+Mirror of `init.md` Phase 3d.5 — full spec (per-page surface, resolution
+menu, re-dispatch budget after user action, `delete_page` ripples,
+`accept_with_banner` durability) lives there. Do not duplicate; read once
+and apply. The recheck-specific differences:
+
+- The queue is every page flagged `fail_hard` this run, from two sources:
+  (a) R3 direct `fail_hard` verdicts that bypassed R4.2 auto-dispatch, and
+  (b) R4.2 escalations — `fail_soft` pages whose retry + tier-2 verifier
+  also failed.
+- If the queue is empty, skip R4.3 entirely and proceed to Phase R5.
+- For pages that already have a prior `_failures.md` entry from an earlier
+  run (any status), surface the prior failure summary alongside this run's
+  findings so the user sees the pattern. A page that has failed in the same
+  way across three runs is a delete or scope-rewrite candidate, not another
+  regen.
+- The **Carry forward prior failures** rule from R4.2 also applies here:
+  if the user picks `regen_with_context` or `patch_scope`, the writer
+  brief carries the prior-failure summary alongside the user's hint.
+
+The run does not advance to Phase R5 until every queued `fail_hard` page has
+`resolution.status` set to a terminal value (not `pending`).
 
 ---
 
@@ -352,9 +395,15 @@ Run these before reporting the run as complete. Subset of `init.md`
       stops surgical edits from silently leaving sibling pages contradictory.
 - [ ] **Notes folder untouched.** No file under `wiki/notes/` was created,
       modified, or deleted.
-- [ ] **Failure summary current.** `wiki/.internal/verification/_failures.md` reflects
-      this run's `fail_hard` verdicts. Stale entries from prior runs are not
-      removed (audit trail), but the latest run's findings appear at the top.
+- [ ] **Failures triaged.** Every `fail_hard` verdict from this run has a
+      user-recorded resolution (`regen_with_context` / `patch_scope` /
+      `scope_shrink_stub` / `accept_with_banner` / `delete_page` / `defer`)
+      in its `_failures.md` entry. Entries with `resolution.status: pending`
+      block this gate. `fail_hard_post_user` (a user-initiated re-attempt
+      that also failed) is a valid terminal state and does **not** block
+      the gate. Stale entries from prior runs are not removed (audit
+      trail); the latest run's findings appear at the top with their
+      decision metadata.
 
 ---
 

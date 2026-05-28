@@ -70,13 +70,16 @@ flowchart TD
     Verify --> Pass{Verdict?}
     Pass -->|pass| Skip[Leave page alone]
     Pass -->|fail_soft| Regen[Regenerate page]
-    Pass -->|fail_hard| Flag[Record in _failures.md<br/>no auto-fix]
+    Pass -->|fail_hard| Tier2{Tier-2<br/>strong verifier}
     Regen --> Reverify[Re-verify]
     Reverify -->|pass| Done[Page updated]
-    Reverify -->|still failing| Flag
+    Reverify -->|still failing| Tier2
+    Tier2 -->|pass| Done
+    Tier2 -->|still failing| Gate[End-of-run user gate:<br/>regen / patch / shrink /<br/>accept / delete / defer]
+    Gate --> Done
 ```
 
-A full generation (`init`, or a forced full rebuild) runs five sub-phases:
+A full generation (`init`, or a forced full rebuild) runs up to six sub-phases (3d.5 fires only when Phase 3d produced any `fail_hard` pages):
 
 | Phase | Purpose |
 | --- | --- |
@@ -84,7 +87,8 @@ A full generation (`init`, or a forced full rebuild) runs five sub-phases:
 | 2. Plan | Write `plan.yaml` per `spec/plan-schema.md`. |
 | 3a. Stub | Create `*TODO*` stubs for every planned page so cross-links resolve immediately. |
 | 3b–c. Write | Dispatch writer sub-agents in parallel, one per section. |
-| 3d. Verify | Dispatch verifier sub-agents in parallel. Auto-fix `fail_soft`, log `fail_hard`. |
+| 3d. Verify | Dispatch verifier sub-agents in parallel. Auto-fix `fail_soft`; escalate via tier-2 strong verifier; queue surviving `fail_hard` pages for the user gate. |
+| 3d.5. User gate | If any pages reached `fail_hard`, halt for a batched user-resolution checkpoint (regen / patch / shrink / accept / delete / defer). Skipped if the queue is empty. |
 | 3e. Finalize | Generate `OVERVIEW.md` + `topics.md`; run link / parity / numeric-consistency checks. Preserve hand-edit zones. |
 
 A recheck does not re-plan unless `plan.yaml` is missing or stale — it only runs the steps that apply to drifted or failing pages.
@@ -148,7 +152,7 @@ The verifier emits one of three verdicts, driven by per-claim severity (`conside
 | --- | --- | --- |
 | `pass` | 0 critical and 0 improvement (consideration tolerated) | Accept as-is. |
 | `fail_soft` | 1–3 improvement, 0 critical | Auto-fix once, then re-verify. |
-| `fail_hard` | 4+ improvement, or any critical | Flag in `_failures.md` for human review; existing content stays. |
+| `fail_hard` | 4+ improvement, or any critical | Tier-2 strong-verifier rescue attempt (if configured); surviving failures enter the end-of-run user resolution gate. Run does not complete until every queued page is triaged. |
 
 Honest calibration matters: inflated severity blocks legitimate updates; deflated severity lets real errors through. The verifier prompt is explicit about this.
 
@@ -181,7 +185,7 @@ Publishing is a one-directional push — local `wiki/` is the source of truth, N
 | --- | --- |
 | Verifier passes a real error (it's an LLM) | Cross-page consistency gates catch some leakage; the suspect-pass check (`resolved: 0` on a large page → re-verify) catches shallow audits; audit by hand periodically. |
 | Verifier shares the writer's blind spots (same base model) | Re-reading source carries the weight, not the prompt split. For high-stakes pages, run a second verifier by hand. |
-| `fail_hard` ignored | `_failures.md` is always written — review it after each recheck. Entries that linger signal real problems. |
+| `fail_hard` accumulating silently | Eliminated by design: the run does not complete until every `fail_hard` page from this run has a recorded resolution (regen / patch / shrink / accept / delete / defer). `defer` is an explicit dated choice surfaced again on the next run, not a silent skip. |
 | Regen produces only rephrasing | Verify-first skips pages that didn't change. If unchanged pages keep getting rewritten, tighten `state: unchanged`. |
 | Prompt drift after a model release | Version the prompts (`VERSION`); force a full `init` and review on a version bump. |
 | Notion direct edits | Overwritten on the next `notion sync`. `Notes` is the human-owned exception. |
