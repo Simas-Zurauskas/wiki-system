@@ -102,15 +102,16 @@ A recheck does not re-plan unless `plan.yaml` is missing or stale — it only ru
 
 ## Commands
 
-Six invocations across four modes. Ground truth for verification is always the **source code**.
+Seven invocations across four modes. Ground truth for verification is always the **source code**.
 
 | Command | What it does |
 | --- | --- |
 | `/wiki-system init` | Bootstrap the local wiki from scratch: scan → plan → stub → write → verify → finalize. |
 | `/wiki-system recheck` | Audit the local wiki against current code: coverage-gap scan, verify-first, regenerate drift. Does not re-plan. |
 | `/wiki-system claude` | Create/update a lean (≤200-line) `CLAUDE.md` from the wiki/repo. The only command that writes it. |
-| `/wiki-system notion sync [<url>]` | Publish to Notion — first time *and* every update (one verb). No mapping: create the mirror under the supplied root page + write the mapping. Mapping present: idempotent push of changed pages, in place (no duplicates). Needs the Notion MCP. |
-| `/wiki-system notion recheck` | Audit the live Notion content against the code; regenerate drift into both Notion and local; reconcile structure. |
+| `/wiki-system notion init [<url>]` | Bootstrap the docs **directly in Notion from code — no local wiki**: scan → plan → generate (in-memory) → verify → push, then synthesize the overviews in-memory. Never writes `wiki/library/` or `wiki/index.md`; seeds the code anchor into the mapping. Needs the Notion MCP. |
+| `/wiki-system notion sync [<url>]` | Publish to Notion — first time *and* every update (one verb). No mapping: create the mirror under the supplied root page + write the mapping. Mapping present: idempotent push of changed pages, in place (no duplicates); also seeds each page's `scope_files`/`owner_agent` code anchor into the mapping. Needs the Notion MCP. |
+| `/wiki-system notion recheck` | Audit the live Notion content against the code and fix drift **in Notion only — no local wiki required** (never reads/writes `wiki/library/` or `wiki/index.md`; `scope_files` come from the mapping's seeded anchor or `plan.yaml`); reconcile structure. |
 | `/wiki-system notion claude` | Same as `claude`, but the Documentation section links to the published Notion pages. |
 
 Mental model: `init`/`recheck` create and audit the local wiki; `claude`/`notion claude` regenerate `CLAUDE.md`; `notion sync` pushes local → Notion (first publish + updates); `notion recheck` audits Notion against code.
@@ -126,8 +127,9 @@ Each is project-agnostic; per-project configuration lives in `init.md`'s CONFIGU
 | `init.md` | Bootstrap orchestrator: scans, plans, dispatches writers and verifiers, finalizes. |
 | `recheck.md` | Recheck orchestrator: audits the existing wiki against source. |
 | `claude-md.md` | `CLAUDE.md` orchestrator (`claude` and `notion claude`). |
-| `notion.md` | Notion publish orchestrator (`notion sync` — first publish + updates). |
-| `notion-recheck.md` | Notion audit orchestrator (`notion recheck`). |
+| `notion-init.md` | Notion-native bootstrap orchestrator (`notion init`) — builds the docs into Notion from code, no local wiki. |
+| `notion.md` | Notion publish orchestrator (`notion sync` — push an existing local `wiki/`). |
+| `notion-recheck.md` | Notion audit orchestrator (`notion recheck`) — verify Notion vs code, no local wiki. |
 | `specialists/ai.md` | AI-track writer (default track) — agent-optimized, code-grounded: self-contained, atomic source-anchored claims, invariants + contracts + runbooks + flow map + concise per-area reference + a machine index. |
 | `specialists/technical.md` | Technical writer — reference pages with file paths, function names, line citations. |
 | `specialists/product.md` | Product writer — flows and business rules in plain language, zero code references. |
@@ -165,7 +167,7 @@ Honest calibration matters: inflated severity blocks legitimate updates; deflate
 
 ## Notion publishing
 
-Publishing is a one-directional push — local `wiki/` is the source of truth, Notion is a render target — driven entirely through the **Notion MCP** (no integration token). The mirror lives under a single root page:
+Publishing (`notion sync`) is a one-directional push — local `wiki/` is the source of truth, Notion is a render target — driven entirely through the **Notion MCP** (no integration token). (The audit companion `notion recheck`, below, flips this: it treats the **code** as truth and can correct Notion with no local wiki.) The mirror lives under a single root page:
 
 ```
 [root page]   body = wiki/index.md
@@ -179,7 +181,9 @@ Publishing is a one-directional push — local `wiki/` is the source of truth, N
 - **No silent destruction.** A page whose source vanished is surfaced as an orphan for the user to resolve — never auto-archived. `Notes` is never overwritten.
 - It does **not** publish `wiki/notes/` content or anything under `wiki/.internal/`.
 
-`notion recheck` is the audit companion: it fetches the live Notion content and verifies it against the source code (the same ground truth as local `recheck`). Drifted pages are regenerated from code into both Notion and local, structure is reconciled, and the mapping is rebuilt from Notion's own tree if `notion-sync.yaml` is lost — so the mapping is a cache, not a single point of failure.
+`notion init` is the build-counterpart of `sync` for teams whose doc home is Notion: it stands up the whole mirror **from code in one pass — scan → plan → generate (in-memory) → verify → push** — and **needs no local wiki**. It reuses the same create/render/push machinery as `notion sync`, but generates and verifies each page from source instead of reading it off disk, and writes only `wiki/.internal/` (the plan + the mapping with its seeded code anchor), never `wiki/library/` or `wiki/index.md`.
+
+`notion recheck` is the audit companion: it fetches the live Notion content and verifies it against the source code (the same ground truth as local `recheck`) — **without a local wiki**. It never reads or writes `wiki/library/` or `wiki/index.md`; each page's `scope_files` come from the mapping's seeded code anchor (or `plan.yaml` if present), and drifted pages are regenerated from code and fixed **in Notion only**. Structure is reconciled, and the mapping is rebuilt from Notion's own tree if `notion-sync.yaml` is lost — so the mapping is a cache, not a single point of failure. (Because fixes land only in Notion, a later `notion sync` from a stale local checkout could overwrite them — the recheck report flags this and points to `recheck` + `notion sync` to converge.)
 
 ---
 
@@ -223,7 +227,8 @@ The principle: **observable rot beats silent rot.** The system makes problems vi
 | `init.md` | Bootstrap orchestrator. |
 | `recheck.md` | Recheck orchestrator. |
 | `claude-md.md` | `CLAUDE.md` orchestrator (`claude` / `notion claude`). |
-| `notion.md` | Notion publish orchestrator (`notion sync` — first publish + updates). |
+| `notion-init.md` | Notion-native bootstrap orchestrator (`notion init`). |
+| `notion.md` | Notion publish orchestrator (`notion sync`). |
 | `notion-recheck.md` | Notion audit orchestrator (`notion recheck`). |
 | `specialists/ai.md`, `technical.md`, `product.md`, `verifier.md` | Writer (one per track) and verifier sub-agent prompts. |
 | `spec/plan-schema.md` | Schema for `wiki/.internal/plan.yaml`. |

@@ -52,11 +52,11 @@ The wiki has up to **three** writer tracks (see `specialists/ai.md`, `specialist
 | Library / CLI / infra repo with **no** end-user product surface | consider dropping `product` (keep `ai`; maybe add `technical`) |
 | A user-facing app / clear product feature surface | keep `product` (already on by default) |
 
-**Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named.
+**Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named — and do NOT promote a heavier set just because the project's `CLAUDE.md` or existing docs happen to reference all three track index pages. An existing reference is not a request: the `ai + product` default stands until the user explicitly opts into more.
 
-Before finalizing the plan, ask the user explicitly (single question, recommended set pre-filled):
+Before finalizing the plan, ask the user explicitly, with **`ai + product` as the recommended default, presented first / on top** — whether you ask as a single pre-filled confirm or as a multiple-choice list. **Never lead with or pre-recommend a heavier set** (`+ technical`, or all three); offer those *below* the default as opt-in adjustments. The recommended option is always `ai + product`:
 
-> I'll generate the **ai** (agent-optimized) and **product** (plain-language) tracks by default. Based on the scan I also suggest: **technical** (developer reference) [if signalled] — and you can drop **product** if there's no end-user product surface. Confirm the track set, or adjust. (Default: ai + product.)
+> I'll generate the **ai** (agent-optimized) and **product** (plain-language) tracks by default *(recommended)*. You can add **technical** (developer reference) [suggest only if the scan signalled it], or drop **product** if there's no end-user product surface. Confirm the track set, or adjust. (Recommended: ai + product.)
 
 Record the chosen set in `wiki/.internal/plan.yaml`'s `meta.tracks` (e.g. `meta.tracks: [ai, product]` or `[ai, technical, product]`) before drafting the rest of the plan. Only plan `sections`/`pages` whose `owner_agent` is an enabled track; a disabled track produces no folder, no pages, and no verifier dispatches. If the user disables `ai`, ask why before proceeding (it is the default for a reason). Never enable or skip a track silently.
 

@@ -448,6 +448,19 @@ Write `wiki/.internal/notion-sync.yaml` complete and valid against
 `spec/notion-sync-schema.md`. Set `meta.synced_at` to now (only on a fully
 completed run). Re-check INVARIANTS 1–5 and 7 before writing.
 
+**Seed the code anchor (for `notion recheck`).** When `wiki/.internal/plan.yaml`
+is present (it was already loaded in N1.3 for child ordering), copy each node's
+`owner_agent` and `scope_files` from the matching plan entry into the node's
+mapping entry — join by `node` == the plan page/section `path`: leaf nodes take
+the plan **page**'s `owner_agent` + `scope_files`; folder nodes take the plan
+**section**'s `owner_agent` (sections have no `scope_files`). These optional
+fields (`spec/notion-sync-schema.md` § FIELD SEMANTICS) make the mapping a
+self-sufficient code anchor, so a later `notion recheck` can verify the live
+Notion pages against the source **without the local wiki or `plan.yaml`**. If
+`plan.yaml` is absent, omit them — a future sync from a planned checkout seeds
+them. This is a write-only enrichment: `notion sync` never reads or acts on
+these fields itself.
+
 ### N5.2 Write the sync report
 
 Write `wiki/.internal/notion-sync-report.md`:

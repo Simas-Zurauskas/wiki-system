@@ -28,9 +28,9 @@ target; this file is the *correspondence* between them.
 
 | Agent | When | Mode |
 | --- | --- | --- |
-| `../notion.md` (`notion sync`) | Every run: reads to decide create-vs-update; writes incrementally as pages are created/updated | read + write |
+| `../notion.md` (`notion sync`) | Every run: reads to decide create-vs-update; writes incrementally as pages are created/updated; **seeds `scope_files`/`owner_agent` per node from `plan.yaml`** so the map can later anchor a no-local audit | read + write |
 | `../notion.md` preflight | First run: file absent → first-sync path. Present → re-sync path | read |
-| `../notion-recheck.md` (`notion recheck`) | Audits live Notion content against the source code; regenerates drift from code into both Notion and local; **rebuilds the map from Notion's structure** when it is absent/stale; refreshes `notion_content_hash` | read + write |
+| `../notion-recheck.md` (`notion recheck`) | Audits live Notion content against the **source code** and fixes drift **in Notion only** (never reads or writes `wiki/library/` / `wiki/index.md`); resolves each page's `scope_files`/`owner_agent` from **this map** (the code anchor); **rebuilds the map from Notion's structure** when it is absent/stale; refreshes `notion_content_hash` | read + write |
 
 If this file conflicts with any inline description elsewhere, this file wins.
 Update this file first, then update references.
@@ -144,6 +144,16 @@ pages:
                                                   #   push. notion recheck compares the live page to
                                                   #   this to detect human edits. Absent until a
                                                   #   recheck establishes it.
+    owner_agent: technical                        # optional: the page's writer/verifier mode
+                                                  #   (ai | technical | product), copied from plan.yaml
+                                                  #   at sync time. Lets `notion recheck` pick the
+                                                  #   verifier mode + writer WITHOUT reading plan.yaml.
+    scope_files: [api/src/index.ts, api/src/db/*] # optional: the source paths this page documents,
+                                                  #   copied from plan.yaml at sync time. THE code anchor
+                                                  #   `notion recheck` verifies the live page against —
+                                                  #   it is what lets the audit run with no local wiki and
+                                                  #   no plan.yaml. Absent → that page is un-auditable
+                                                  #   (no code ground truth) until a sync/plan seeds it.
     synced_at: <ISO-8601>
 
 # Nodes that were synced in a prior run but no longer exist on disk.
@@ -229,6 +239,19 @@ Field order is free. Every field is required unless noted.
   skipped — the same economy as `recheck.md`'s `state: unchanged`. It is NOT a
   diff-against-local: `notion recheck`'s ground truth is the source code, never this
   hash. Absent until a recheck establishes it; `notion sync` need not maintain it.
+- **owner_agent** / **scope_files** — *optional; written by `notion sync`, read by
+  `notion recheck`.* Copied verbatim from the matching `plan.yaml` entry at sync time
+  (joined by `node` == the plan page/section `path`): `owner_agent` from the page,
+  `scope_files` from the page. They make the mapping a **self-sufficient code anchor**:
+  `notion recheck` resolves a live Notion page → its `scope_files` (what code to verify
+  against) and `owner_agent` (which verifier mode / writer) from the mapping ALONE — no
+  `wiki/library/` file and no `plan.yaml` required. `scope_files` is the same glob/path
+  list the local verifier uses; `owner_agent` is one of `ai` | `technical` | `product`.
+  A leaf node with no `scope_files` (an overview/derived page, or one synced before this
+  field existed) is **un-auditable** by `notion recheck` — there is no code to verify it
+  against — and is reported as such rather than passed. When `plan.yaml` IS present at
+  audit time, `notion recheck` prefers it (freshest) and falls back to these fields.
+  `notion sync` omits both when no `plan.yaml` is available to copy from.
 
 ### Rebuilding the mapping from Notion (the mapping is a cache)
 
