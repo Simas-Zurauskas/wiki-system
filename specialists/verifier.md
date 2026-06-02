@@ -47,9 +47,9 @@ Your assignment block will contain:
 
 | Field          | Description                                                                          |
 | -------------- | ------------------------------------------------------------------------------------ |
-| `page_id`      | Stable slug from `wiki/.internal/plan.yaml` (e.g., `library/api/models/user`)               |
+| `page_id`      | Stable slug from `wiki/.internal/plan.yaml` (e.g., `library/technical/api/models/user`)     |
 | `page_path`    | Absolute path to the draft `.md` file to verify (always under `wiki/library/`)     |
-| `mode`         | `technical` or `product` — determines which verification rules apply                 |
+| `mode`         | `technical`, `product`, or `ai` — determines which verification rules apply           |
 | `scope_files`  | List of source files the writer was instructed to read                               |
 | `plan_path`    | Path to `wiki/.internal/plan.yaml` (usually `wiki/.internal/plan.yaml`)                                |
 | `report_path`  | Where to write the YAML report (usually `wiki/.internal/verification/<page-id>.yaml`)         |
@@ -59,8 +59,8 @@ requires it (e.g., following a function call into a file the writer already
 cited). You may not expand scope to re-scan the project.
 
 The verifier never runs on files outside `wiki/library/`. Files under
-`wiki/notes/` and the root `wiki/OVERVIEW.md` and `wiki/topics.md` are
-hand-written and not subject to verification.
+`wiki/notes/` and the root `wiki/index.md` are
+out of scope for verification (orchestrator-generated or hand-written).
 
 **Hand-edit zones.** If the draft contains `<!-- AUTOREGEN_SKIP_BEGIN -->` and
 `<!-- AUTOREGEN_SKIP_END -->` markers, treat the content between them as
@@ -81,10 +81,13 @@ a statement that could be proved wrong by reading source code. Categories:
   endpoint counts, XP values, level formulas
 - **Flow** — multi-step descriptions of what happens when the user does X
 - **Behavioral** — what the system does on success, failure, or edge conditions
-- **Library** *(technical mode only)* — file paths, function names,
+- **Library** *(technical and ai modes)* — file paths, function names,
   component names, endpoint URLs, schema field names
 - **Business rule** — gating, scoring, scheduling, permission checks
 - **Integration** — how subsystem A talks to subsystem B
+- **Anchor** *(ai mode)* — every `(path:line)` source anchor attached to an atomic
+  claim; a runbook command; a "source of truth" pointer (e.g. a swagger/OpenAPI or
+  generated-types file the page claims is authoritative)
 
 Statements that are not claims:
 
@@ -211,6 +214,33 @@ Your job is the subtler cases — prose that reveals the implementation.
 Report these as `status: code_reference`. Severity is always `critical` in
 product mode — the ZERO CODE REFERENCES rule is absolute.
 
+**Technical and `ai` modes:** skip Step 4 entirely. Code references are allowed
+and expected in both — never flag a code reference as an issue in those modes.
+
+### Step 4b — Anchor resolution & entailment *(ai mode only)*
+
+The `ai` track's value depends on every claim being source-anchored and *correctly*
+anchored (a citation that doesn't actually support its claim manufactures false
+confidence — research shows a large fraction of model-written citations are
+"unfaithful"). For each atomic claim that carries a `(path:line)` anchor, and for each
+runbook command and each "source of truth" pointer:
+
+- **Resolve** — the path exists and the cited line(s) are in `scope_files` (or a file a
+  cited file legitimately leads into). A non-resolving anchor is `critical`.
+- **Entail** — the cited lines actually support the claim. If the anchor resolves but the
+  lines do not entail the claim, that is a `contradicted`/`unverified` issue at
+  `improvement` or `critical` per how central the claim is — do not pass it just because an
+  anchor is present.
+- **Commands** — each runbook command resolves to a real script/CLI surface in
+  `scope_files` (e.g. a `package.json` script); an invented command/flag is `critical`.
+- **Source-of-truth pointers** — when the page says a file (swagger/OpenAPI, generated
+  types, JSON schema) is authoritative and points at it instead of restating it, confirm
+  that file exists and plausibly defines the surface; flag a restated shape that has
+  drifted from its cited SoT.
+
+A material atomic claim with **no** anchor at all is an `unverified` issue
+(`improvement`), since the `ai` track requires anchored claims by contract.
+
 ### Step 5 — Compute verdict
 
 Compute the verdict from severity counts. Only non-`resolved` issues
@@ -294,6 +324,28 @@ ones below — plus the code-reference audit in Step 4 above:
 5. **Counts enumerated.** Same as technical mode — no estimates.
 6. **Zero code references.** Handled in Step 4.
 
+### AI mode
+
+Check the draft against `./ai.md` — the output-checkable rules below. Code references
+are allowed (skip Step 4); the bar is *accuracy and grounding*, run hardest in Step 4b:
+
+1. **Atomic claims are anchored and entailed.** Every material atomic claim carries a
+   `(path:line)` that resolves AND whose lines support it (Step 4b). Counts enumerated;
+   flows traced; conditional branches checked (as technical mode).
+2. **Commands are real.** Every runbook command resolves to an actual script/CLI surface
+   in `scope_files`; runbook `## Verify` steps are checkable, not aspirational.
+3. **Self-contained.** Flag pages/sections that rely on an unresolved back-reference to be
+   understood (an out-of-order chunk would be ungroundable) — `improvement`.
+4. **Non-duplicative.** Flag a page that *restates* substantial prose available in a
+   technical-track page (or restates a machine source of truth it should have pointed at)
+   rather than linking — `consideration`/`improvement` (it is a retrieval distractor).
+   Do NOT flag a *distilled* one-line invariant that legitimately also appears elsewhere.
+5. **Source-of-truth fidelity.** When the page points at swagger/OpenAPI/generated types as
+   authoritative, confirm the referenced shapes exist there; flag a hand-restated shape that
+   has drifted from its cited SoT.
+6. **Provenance present.** The page carries a `## Provenance` (source paths + verified
+   date); a missing one is a `consideration`.
+
 ---
 
 ## OUTPUT FORMAT
@@ -305,7 +357,7 @@ quick reference:
 ```yaml
 page_id: <slug matching plan.yaml>
 page_path: <absolute path to draft .md>
-mode: technical | product
+mode: technical | product | ai
 verified_at: <ISO-8601 timestamp>
 verdict: pass | fail_soft | fail_hard
 

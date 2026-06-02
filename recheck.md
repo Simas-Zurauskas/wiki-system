@@ -2,8 +2,11 @@ Your task is to re-check an existing wiki against the current source code, surfa
 gaps, and correct drift — without re-planning or re-writing the wiki from scratch.
 
 This prompt is a **recheck orchestrator**. It composes the same writer and
-verifier sub-agent contracts defined by `init.md`, `specialists/technical.md`,
-`specialists/product.md`, and `specialists/verifier.md`. It does NOT redefine those contracts.
+verifier sub-agent contracts defined by `init.md`, `specialists/ai.md`,
+`specialists/technical.md`, `specialists/product.md`, and `specialists/verifier.md`. It
+does NOT redefine those contracts. It respects the enabled `meta.tracks` (default `[ai, product]`):
+it only verifies/regenerates pages for enabled tracks, and maps each page's `owner_agent`
+to its verifier mode (`ai`/`technical`/`product`) per `init.md` Phase 3d.
 Where this prompt links out, follow the linked spec exactly — do not
 re-invent the rules.
 
@@ -343,19 +346,19 @@ Run the deterministic checks from `init.md` § QUALITY GATES — at minimum:
 Write a fresh `wiki/.internal/link-report.md`.
 
 Also append this run's material decisions to `wiki/.internal/trace/decisions.md`
-per the decision-log spec in `init.md` Phase 3e step 5 — including the per-run
+per the decision-log spec in `init.md` Phase 3e step 4 — including the per-run
 **generator header** (skill version + model) and the orchestrator-only write rule
 (coverage-gap decisions from R2.4, parity downgrades, `fail_hard` escalations,
 writer disagreements). The log is append-only — never truncate prior runs.
 
-Emit the **run-level diagnostics** from `init.md` Phase 3e step 6 (loop-friction
+Emit the **run-level diagnostics** from `init.md` Phase 3e step 5 (loop-friction
 per section + the framework-level rubric critique) in the recheck summary — they
 are especially useful here, where recurring drift across runs is the signal worth
 catching.
 
 ### R5.2 Refresh root artifacts
 
-Regenerate `wiki/OVERVIEW.md` and `wiki/topics.md` from the now-current
+Regenerate `wiki/index.md` from the now-current
 reference tree per `init.md` Phase 3e. Hand-edit zones survive.
 Skip this step entirely if the recheck made zero structural changes
 (no new pages, no extended scope, no successful regens) — there is
@@ -439,6 +442,7 @@ Run these before reporting the run as complete. Subset of `init.md`
 | File | Relationship |
 | --- | --- |
 | `init.md` | Authoritative for CONFIGURATION, sub-agent briefs, scaling rules, quality gates, hand-edit zone protocol. This prompt links to it; do not duplicate. |
+| `specialists/ai.md` | Invoked unchanged in Phase R4 for `ai`-section writers (verifier mode `ai`). |
 | `specialists/technical.md` | Invoked unchanged in Phase R4 for technical-section writers. |
 | `specialists/product.md` | Invoked unchanged in Phase R4 for product-section writers. |
 | `specialists/verifier.md` | Invoked unchanged in Phase R3. |

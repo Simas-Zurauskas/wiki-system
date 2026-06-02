@@ -10,7 +10,7 @@ source code**. It is **not** a re-sync — it does not re-render local and push.
 
 It composes three existing contracts and does not redefine them:
 - `specialists/verifier.md` — the per-page accuracy check (Notion content vs `scope_files`).
-- `specialists/technical.md` / `specialists/product.md` — regenerate a drifted page from code.
+- `specialists/ai.md` / `specialists/technical.md` / `specialists/product.md` — regenerate a drifted page from code (per the page's `owner_agent` / verifier mode).
 - `notion.md` — render + push (N3.1, child-preservation), structure, orphans (N4), the mapping.
 
 It reads `wiki/.internal/plan.yaml` for each page's `scope_files`, and the mapping
@@ -75,8 +75,8 @@ vs `<mention-page>` facts).
   is read-only on `wiki/`. (One lag: the corrected page's *local* verifier report,
   `wiki/.internal/verification/<id>.yaml`, is not refreshed here — the content is
   code-accurate, but that local report stays stale until the next local `recheck`.)
-- **Derived pages have no code to check.** The root page body (`wiki/OVERVIEW.md`),
-  the `Topics` page (`wiki/topics.md`), and the `Library` container's overview
+- **Derived pages have no code to check.** The root page body (`wiki/index.md`)
+  and the `Library` container's overview
   are orchestrator-*synthesized* — they have no `scope_files`. For these, the
   canonical source is the local synthesized file, so they are reconciled to local
   (re-push if Notion drifted). This is the only place local is the reference, and
@@ -145,7 +145,7 @@ matches.
 | Class | Pages | Handling |
 | --- | --- | --- |
 | **verifiable** | reference leaf/folder pages that have `scope_files` in the plan | Audited vs code (NR2–NR3). |
-| **derived** | the root body (`wiki/OVERVIEW.md`), the `Topics` page (`wiki/topics.md`), the `Library` overview — orchestrator-synthesized, **no `scope_files`** | Reconciled to the local synthesized file (NR3.3); not code-verified. |
+| **derived** | the root body (`wiki/index.md`), the `Library` overview — orchestrator-synthesized, **no `scope_files`** | Reconciled to the local synthesized file (NR3.3); not code-verified. |
 | **working** | the `Notes` page | Skipped entirely (human-owned). |
 | **structural** | `missing_in_notion` / `dead_id` / `orphan_in_notion` / `foreign` / `moved` / `renamed` | Reconciled in NR4. |
 
@@ -206,9 +206,9 @@ Then refresh `content_hash` and capture `notion_content_hash` (hash of Notion's
 serialization after the push) so the next audit can skip it.
 
 ### NR3.3 Derived pages
-Root body / `Topics` / `Library` overview have no `scope_files`, so they are not
+Root body / `Library` overview have no `scope_files`, so they are not
 code-verified. Their canonical source is the local synthesized file
-(`wiki/OVERVIEW.md`, `wiki/topics.md`, `wiki/library/OVERVIEW.md`). If the live
+(`wiki/index.md`, `wiki/library/index.md`). If the live
 Notion content differs from that local file's rendering, re-push the local file;
 otherwise leave it. (If the local synthesized files themselves are stale, that is
 a job for `recheck.md`'s finalize, not this command.)
@@ -334,6 +334,6 @@ Mapping: loaded-from-cache | rebuilt-from-Notion
 | `specialists/verifier.md` | The per-page audit, run over live Notion content + `scope_files`. Invoked unchanged. |
 | `specialists/technical.md` / `product.md` | Regenerate a drifted page from code. Invoked unchanged. |
 | `notion.md` | Render + push (N3.1), child-preservation, structure (N2), orphans (N4), the mapping. Reused, not redefined. |
-| `recheck.md` | The local analog — verifies the *local* wiki against code. This verifies the *published Notion* content against code. Run `recheck` to fix the local synthesized root files (OVERVIEW/topics) this command treats as canonical. |
+| `recheck.md` | The local analog — verifies the *local* wiki against code. This verifies the *published Notion* content against code. Run `recheck` to fix the local synthesized root file (the index overview) this command treats as canonical. |
 | `spec/notion-sync-schema.md` | The mapping (incl. `notion_content_hash` as the audit-skip signal) and the rebuild-from-Notion semantics. |
 | `init.md` | Source of the verifier/writer brief templates and the worker-pool scaling rules. |

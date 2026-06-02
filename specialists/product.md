@@ -206,38 +206,40 @@ complete product experience.
 by what the user experiences: `wiki/library/product/course-creation/`,
 `wiki/library/product/learning-experience/`, `wiki/library/product/assessment/`.
 
-The wiki root (`wiki/OVERVIEW.md`, `wiki/topics.md`) is hand-written and out of
+The wiki root (`wiki/index.md`) is hand-written and out of
 scope for product writers. Writers never create or modify files at the wiki
 root or under `wiki/notes/`.
 
 ```
 wiki/
-├── OVERVIEW.md                       ← HAND-WRITTEN. Out of scope for writers.
-├── topics.md                         ← HAND-WRITTEN. Out of scope for writers.
+├── index.md                       ← HAND-WRITTEN. Out of scope for writers.
 │
 ├── library/
-│   ├── api/                          ← technical writer output (sibling track)
-│   ├── client/                       ← technical writer output (sibling track)
+│   ├── index.md                      ← library overview (links the enabled tracks)
+│   ├── ai/                           ← AI track output (default; sibling track)
+│   ├── technical/                    ← technical writer output (sibling track)
+│   │   ├── api/
+│   │   └── client/
 │   │
 │   └── product/                      ← AUTO-GEN. Product writer produces content here.
-│       ├── OVERVIEW.md               ← product overview, feature map, how areas connect
+│       ├── index.md               ← product overview, feature map, how areas connect
 │       ├── system-overview.md        ← high-level architecture from product perspective
 │       ├── authentication.md         ← signup, login, sessions — user's access experience
 │       │
 │       ├── course-creation/          ← everything about creating a course
-│       │   ├── OVERVIEW.md           ← summary of the creation flow
+│       │   ├── index.md           ← summary of the creation flow
 │       │   ├── wizard.md             ← step-by-step wizard experience
 │       │   ├── ai-refinement.md      ← chat-based course refinement
 │       │   └── structure-output.md   ← what gets generated (modules, lessons)
 │       │
 │       ├── learning-experience/      ← everything about consuming a course
-│       │   ├── OVERVIEW.md
+│       │   ├── index.md
 │       │   ├── lesson-viewer.md      ← content types, interactions
 │       │   ├── code-exercises.md     ← coding challenges and execution
 │       │   └── notes-bookmarks.md    ← personal learning tools
 │       │
 │       ├── assessment/               ← quizzes, mastery, spaced review
-│       │   ├── OVERVIEW.md
+│       │   ├── index.md
 │       │   ├── quizzes.md
 │       │   ├── mastery-tiers.md
 │       │   └── spaced-review.md
@@ -252,9 +254,9 @@ manager reading about assessment should understand quizzes, mastery, and spaced
 review without needing to read the course creation docs. Cross-references between
 feature areas are encouraged, but each area's docs must stand on their own.
 
-### wiki/library/product/OVERVIEW.md
+### wiki/library/product/index.md
 
-The product OVERVIEW is the entry point into product documentation. It must
+The product overview is the entry point into product documentation. It must
 contain:
 
 - One-paragraph product description
@@ -262,7 +264,7 @@ contain:
 - Links to every feature area under `wiki/library/product/`
 - Brief description of the product's key differentiators
 
-The wiki **root** OVERVIEW (`wiki/OVERVIEW.md`) is separate, hand-written, and
+The wiki **root** overview (`wiki/index.md`) is separate, hand-written, and
 out of scope for product writers.
 
 ---
@@ -331,8 +333,8 @@ split further. Depth is not capped.
 | -------------------------------------------------------- | --------------------------------------------------------------------- |
 | A UI toggle, single control, or < 150 words of behavior  | Fold into parent page                                                 |
 | One screen with one primary flow                         | Single `topic.md` page                                                |
-| A feature area with 2–5 related screens or flows         | Folder `topic/` with `OVERVIEW.md` + 2–5 child pages                  |
-| A feature area with 6+ screens/flows or distinct sub-areas | Folder `topic/` with `OVERVIEW.md` + children; children may nest too |
+| A feature area with 2–5 related screens or flows         | Folder `topic/` with `index.md` + 2–5 child pages                  |
+| A feature area with 6+ screens/flows or distinct sub-areas | Folder `topic/` with `index.md` + children; children may nest too |
 
 ### When a feature is a subsection, not a page
 
@@ -347,7 +349,7 @@ A feature belongs inside another page when:
 ### When a page must split (mechanics)
 
 1. Create a folder named after the original page's topic.
-2. Create an `OVERVIEW.md` inside — the parent page summarizing the area and
+2. Create an `index.md` inside — the parent page summarizing the area and
    linking to children. The overview must NOT duplicate child content.
 3. Move each distinct feature area into its own child page.
 4. Update cross-links to point to the correct child, not the old page.
@@ -413,13 +415,19 @@ Not every page needs every section — omit sections that would be empty or forc
   at least one other page.
 - **Technical Reference** (optional) — Links to corresponding technical wiki pages
   for readers who want implementation details. Example: product/authentication.md
-  links to api/authentication.md and client/authentication.md. These are relative
-  paths from the wiki root (e.g., `../api/authentication.md`).
+  links to technical/api/authentication.md and technical/client/authentication.md.
+  These are relative paths (e.g., `../technical/api/authentication.md`).
 
 ---
 
 ## WRITING STANDARDS
 
+- **Page titles (the first `# H1`) are short, bare names.** The H1 becomes the
+  page/sidebar title in the wiki tree and the Notion mirror — make it the plain
+  area/page name (`# Product`, `# Video Generation`, `# Admin Tool`, `# Scene Authoring`),
+  never prefixed with the product name (`elf-watch — …`) or suffixed with structural meta
+  (`— index`, `Overview`). Put descriptive context in the opening line, not the heading —
+  verbose H1s read as noise in the sidebar.
 - Present tense, third person ("The system generates…", "Users can…")
 - Clear and accessible. Avoid jargon — explain concepts, don't name implementations
 - Dense and precise. Every sentence must carry information. Cut filler.
@@ -505,7 +513,7 @@ path, not assumed from naming or scan summaries. See VERIFICATION RULES above.
 ## CONSTRAINTS
 
 - Writers produce files **only under `wiki/library/product/`**. Never create
-  or modify files at the wiki root (`wiki/OVERVIEW.md`, `wiki/topics.md`) or
+  or modify files at the wiki root (`wiki/index.md`) or
   under `wiki/notes/`. Those are hand-written and out of scope.
 - Writers must preserve content between `<!-- AUTOREGEN_SKIP_BEGIN -->` and
   `<!-- AUTOREGEN_SKIP_END -->` markers verbatim. Treat content inside the
@@ -524,7 +532,7 @@ path, not assumed from naming or scan summaries. See VERIFICATION RULES above.
   document in silos
 - Cross-section links to technical wiki pages are required wherever a
   counterpart page exists. Each product page should include a "Technical
-  Reference" section linking to the corresponding api/ and client/ pages.
+  Reference" section linking to the corresponding technical/<repo>/ pages.
 - No document should be a wall of text — use headings, short paragraphs,
   tables, and diagrams
 - If something is unclear from the codebase alone, note it as unknown rather

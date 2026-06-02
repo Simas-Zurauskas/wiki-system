@@ -60,7 +60,7 @@ exact behavior this command exists to remove.
 1. `pwd` to confirm CWD; `ls -la` to confirm it looks like a project root (code/repos,
    not `~` or `/`). If wrong, halt and ask where the project lives.
 2. Note whether `CLAUDE.md` exists → **update** vs **create**.
-3. Note whether a wiki exists (`wiki/OVERVIEW.md` and/or `wiki/.internal/plan.yaml`).
+3. Note whether a wiki exists (`wiki/index.md` and/or `wiki/.internal/plan.yaml`).
    This decides how you gather facts in C1.
 
 ## PHASE C1: GATHER FACTS (cheapest source first — do NOT do a full init-style scan)
@@ -71,7 +71,7 @@ sufficient source. Stop as soon as you have enough to fill the C2 sections.
 1. **Existing `CLAUDE.md`** — read it. Preserve everything still accurate; you are
    refining, not discarding. Keep any `<!-- AUTOREGEN_SKIP_BEGIN -->…<!-- AUTOREGEN_SKIP_END -->`
    hand-edit zones **verbatim**.
-2. **The wiki, if present** — `wiki/OVERVIEW.md` (product description, layout,
+2. **The wiki, if present** — `wiki/index.md` (product description, layout,
    architecture) and `wiki/.internal/plan.yaml` (`meta` block: repos, tracks, product
    description). This is already-synthesized, authoritative project knowledge — prefer
    it over re-deriving from source.
@@ -106,10 +106,15 @@ Adapt wording to the project, but it must say all of this and **no more**:
 ```markdown
 ## Documentation
 
-All project documentation lives in `wiki/` and is the authoritative reference:
-- <link to wiki/OVERVIEW.md> — entry point and system architecture
-- <link to wiki/topics.md> — cross-cutting topic index
-- <links to the main reference roots, e.g. wiki/library/...>
+All project documentation lives in `wiki/` and is the authoritative reference.
+
+**AI agents: start at** <link to wiki/library/ai/index.md> — the agent-optimized track
+(invariants, contracts, runbooks, a flow map, per-area reference). Load pages on demand;
+do not read the whole tree at once.
+
+Other entry points:
+- <link to wiki/index.md> — system entry point and architecture
+- <links to other enabled reference roots, e.g. wiki/library/technical/, wiki/library/product/>
 
 **Maintenance policy — on request only.** The wiki and this file are refreshed
 *only* when explicitly asked, by running the `wiki-system` skill. Do **not** edit
@@ -123,6 +128,14 @@ When a refresh is wanted, run:
 
 For a full rebuild after a major architectural change: `/wiki-system init`.
 ```
+
+**The "AI agents: start at" line is conditional on the `ai` track existing**
+(`wiki/library/ai/index.md`). The `ai` track is the wiki's default, so in most projects it
+will be present — lead the section with it. If the project has **no** `ai` track (the user
+disabled it, or an older wiki predates it), drop that line and lead with `wiki/index.md`.
+`CLAUDE.md` only *points to* the `ai` track — it is the lean signpost an agent reads first;
+the agent-audience depth lives in `wiki/library/ai/`, never restated here. List only the
+reference roots that actually exist.
 
 If no wiki exists yet, keep the policy paragraph and the command list, and note that
 the wiki has not been generated (suggest `/wiki-system init`) instead of linking pages.
@@ -141,7 +154,7 @@ on-request commands (`notion sync` re-publishes).
   the wiki; keep `CLAUDE.md` count-free.
 - **No deep feature descriptions** — that is what `wiki/library/` is for. `CLAUDE.md`
   points; the wiki explains.
-- **No restating `wiki/OVERVIEW.md`** — pointer + link only.
+- **No restating `wiki/index.md`** — pointer + link only.
 - **No documentation writing-standards / quality-bar / page-structure essays** — those
   belong in this skill, not in every project's `CLAUDE.md`.
 - **No "update docs when you change code" guidance** — see § PHILOSOPHY.
@@ -167,8 +180,9 @@ instead of local files. It still writes a **local** `CLAUDE.md` — Notion is re
 
 **Resolve entry-point URLs (this replaces the local links — nothing else changes):**
 
-3. `CLAUDE.md` links only to **entry points** — the root/OVERVIEW page, the `Library`
-   page, the api/client/product section pages, and `Topics`. Find each one's
+3. `CLAUDE.md` links only to **entry points** — the root/index page, the `Library`
+   page, the `ai` track index (lead with it when present), and the technical/product
+   section pages. Find each one's
    `notion_page_id` in the mapping (`pages[].node` → its `notion_page_id`; the root is
    `meta.root_page_id`). Do **not** enumerate leaf pages.
 4. For each entry-point id, get its URL. Prefer the **canonical URL** from the MCP

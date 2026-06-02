@@ -29,24 +29,43 @@ file wins. Update this file first, then update references.
 meta:
   product_description: "<one paragraph — from Configuration or inferred>"
   state: bootstrap | growth | maintenance
+  tracks: [ai, product]       # enabled tracks, a non-empty subset of {ai, technical, product}.
+                              # DEFAULT [ai, product] (ai and product are on by default; technical
+                              # is opt-in). The orchestrator only plans sections/pages whose
+                              # owner_agent is in this list; a disabled track costs nothing.
+                              # See ../init.md § Documentation Tracks for the selection flow + defaults.
   repos:
     - name: <string>
       path: <absolute path>
   generated_at: <ISO-8601 date>
   generator_version: "wiki-system v<N> · <model-id>"  # skill version + model that produced this plan;
                                                        # lets recheck detect generator drift, not just source drift
-  schema_version: "1.1"  # bump on breaking changes to this schema
+  schema_version: "1.3"  # bump on breaking changes to this schema
+                         # 1.2: folder index file renamed OVERVIEW.md -> index.md; the technical
+                         #      track is always nested under wiki/library/technical/<repo>/ (a
+                         #      `technical` section with parent `library`), never directly under
+                         #      wiki/library/. Product track unchanged at wiki/library/product/.
+                         # 1.3: third track `ai` (wiki/library/ai/) added — agent-optimized,
+                         #      code-grounded, default-ON; owner_agent gains the value `ai`;
+                         #      meta.tracks records which tracks are enabled (default [ai, product]).
 
 # Sections correspond to folders under wiki/library/. Section paths always
-# start with wiki/library/. The orchestrator never plans content under
+# start with wiki/library/. The library has up to THREE tracks, all under wiki/library/:
+#   - ai        (wiki/library/ai/)              — agent-optimized, DEFAULT ON; one `ai` section
+#                                                  (parent `library`); see ../specialists/ai.md.
+#   - technical (wiki/library/technical/<repo>/) — repo-scoped developer reference; ALWAYS nested
+#                                                  under technical/ (a `technical` section, parent
+#                                                  `library`), one folder per repo, even for one repo.
+#   - product   (wiki/library/product/)          — feature-scoped, code-free.
+# Only tracks listed in meta.tracks are planned. The orchestrator never plans content under
 # wiki/notes/ or at the wiki root — those are hand-written.
-# A section with has_overview: true produces an OVERVIEW.md at that folder.
+# A section with has_overview: true produces an index.md at that folder.
 # Nesting is arbitrary depth — use it. The scope-to-depth table below forces it.
 sections:
-  - id: <stable slug, e.g. library/api/models>
+  - id: <stable slug, e.g. library/technical/api/models or library/ai/contracts>
     path: wiki/library/<slug>/
     parent: <parent section id, or null for top-level>
-    owner_agent: technical | product
+    owner_agent: technical | product | ai
     has_overview: true | false
     scope_loc_estimate: <integer — sum of source LOC this section documents>
     split_reason: "<why this section is a folder rather than a single page>"  # optional
@@ -56,10 +75,10 @@ sections:
 
 # Pages are leaf documents. Page paths always start with wiki/library/.
 pages:
-  - id: <stable slug, e.g. library/api/models/user>
+  - id: <stable slug, e.g. library/technical/api/models/user>
     path: wiki/library/<slug>.md
     section: <section id this page belongs to>
-    owner_agent: technical | product
+    owner_agent: technical | product | ai
     scope_files: [<glob or file paths relative to project root>]
     scope_loc_estimate: <integer>
     complexity: S | M | L | XL
@@ -86,13 +105,17 @@ Field order is free. Every listed field is required unless marked optional.
 ### `sections[]`
 
 - **id** — stable slug; used as the key when agents reference the section.
-  Must match the path structure: `api/models` → `wiki/api/models/`.
-- **parent** — the section id one level up. `null` for top-level sections
-  (`api`, `client`, `product`).
-- **owner_agent** — which specialist writes this section. `technical` maps
-  to repo-scoped documentation; `product` maps to feature-scoped.
+  Must match the path structure: `technical/api/models` → `wiki/library/technical/api/models/`.
+- **parent** — the section id one level up. `null` for the top-level `library`
+  section. The track sections `ai`, `technical`, and `product` have
+  `parent: library`; each repo section (e.g. `api`) has `parent: technical`.
+- **owner_agent** — which specialist writes this section, and which verifier
+  `mode` checks it. `technical` → repo-scoped developer docs (`../specialists/technical.md`);
+  `product` → feature-scoped, code-free docs (`../specialists/product.md`);
+  `ai` → agent-optimized, code-grounded docs under `wiki/library/ai/`
+  (`../specialists/ai.md`). The value must be one of the enabled `meta.tracks`.
 - **has_overview** — `true` means the section is a folder with an
-  `OVERVIEW.md`. `false` means the section is a single leaf page (in which
+  `index.md`. `false` means the section is a single leaf page (in which
   case `path` should end in `.md`, not `/`).
 - **scope_loc_estimate** — sum of source LOC across all pages in this
   section. Used by the scope-to-depth rule.
@@ -102,12 +125,14 @@ Field order is free. Every listed field is required unless marked optional.
 ### `pages[]`
 
 - **id** — stable slug matching `path` minus `wiki/library/` and `.md`
-  (e.g., `wiki/library/api/authentication.md` → id `library/api/authentication`,
-  or just `api/authentication` if your project keeps ids unprefixed — pick one
-  convention per project and document it).
+  (e.g., `wiki/library/technical/api/authentication.md` → id
+  `library/technical/api/authentication`, or a shorter convention such as
+  `api/authentication` that keeps the repo name but drops the `library/technical/`
+  prefix — pick one convention per project and document it; whichever you choose,
+  keep it stable across runs so verification report filenames don't churn).
 - **section** — the id of the section this page belongs to. Every page
-  belongs to exactly one section. Hand-written root files (`wiki/OVERVIEW.md`,
-  `wiki/topics.md`) and the contents of `wiki/notes/` are not part of the
+  belongs to exactly one section. The orchestrator-generated root file
+  (`wiki/index.md`) and the contents of `wiki/notes/` are not part of the
   plan; they have no `section` because they are not in `pages[]` at all.
 - **scope_files** — list of file paths or globs in the source repo that
   this page documents. The writer reads these; the verifier verifies
@@ -162,15 +187,19 @@ Field order is free. Every listed field is required unless marked optional.
 The orchestrator applies this table before finalizing `sections` and
 `pages`. Writers apply it recursively when evaluating whether to return a
 `split_request`. Verifiers reference it when judging whether the plan was
-correctly shaped. This table is authoritative for technical docs; the
+correctly shaped. This table is authoritative for technical docs and for the
+`ai` track's `reference/`, `contracts/`, `runbooks/`, and `map/` folders; the
 product specialist uses a feature-based variant (see `../specialists/product.md`).
+The `ai` track has a fixed top-level shape (`index`, `invariants`, `glossary`,
+`contracts/`, `runbooks/`, `map/`, `reference/`) regardless of size — see
+`../specialists/ai.md` — and applies this table only to size those folders.
 
 | Source scope                              | Required structure                                                                 |
 | ----------------------------------------- | ---------------------------------------------------------------------------------- |
 | < 300 LOC or < 5 files                    | Fold into parent section; do not create a dedicated page                           |
 | 300–1,500 LOC                             | Single `topic.md` page                                                             |
-| 1,500–5,000 LOC across ≥2 concern areas   | Folder `topic/` with `OVERVIEW.md` + 2–5 child pages                               |
-| 5,000+ LOC, or ≥3 distinct concern areas  | Folder `topic/` with `OVERVIEW.md` + children; children may themselves be folders  |
+| 1,500–5,000 LOC across ≥2 concern areas   | Folder `topic/` with `index.md` + 2–5 child pages                               |
+| 5,000+ LOC, or ≥3 distinct concern areas  | Folder `topic/` with `index.md` + children; children may themselves be folders  |
 
 The rule applies recursively. A 5,000-LOC subsystem split into children of
 1,800 LOC each that themselves cover multiple concern areas must split
@@ -186,7 +215,7 @@ Each verifier sub-agent writes a YAML report to
 ```yaml
 page_id: <stable slug — same id as in wiki/.internal/plan.yaml pages[]>
 page_path: wiki/library/<slug>.md
-mode: technical | product
+mode: technical | product | ai
 verified_at: <ISO-8601 timestamp>
 verdict: pass | fail_soft | fail_hard
 
@@ -421,7 +450,12 @@ A valid `wiki/.internal/plan.yaml` must satisfy all of:
    `has_overview: true` (per the scope-to-depth table).
 9. For every page with `section_parity: strict`, a counterpart page
    exists in each sibling section where parity is meaningful.
-10. `meta.schema_version` matches the version this file documents (`1.1`).
+10. `meta.tracks` is a non-empty subset of `{ai, technical, product}`. Every
+    `owner_agent` (sections and pages) is one of the enabled `meta.tracks`, and
+    every enabled track has at least one section. `scope_loc_estimate` and the
+    scope-to-depth invariant (#8) apply to `technical` and `ai` sections; a
+    `product` section is feature-sized, not LOC-sized, and is exempt from #8.
+11. `meta.schema_version` matches the version this file documents (`1.3`).
 
 The orchestrator validates these in Phase 2 before writing the plan and
 in Quality Gates at the end of Phase 3e.

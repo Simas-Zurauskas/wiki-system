@@ -2,18 +2,22 @@ Your task is to publish the on-disk `wiki/library/` tree to Notion, mirroring
 its structure under a single Notion root page — and to keep that mirror in sync
 on subsequent runs without creating duplicates.
 
-This prompt is the **Notion publish orchestrator**. It is reached by two verbs,
-both running this same file:
+This prompt is the **Notion publish orchestrator**, invoked as
+**`/wiki-system notion sync [<root-page-url>]`**. There is **one** publish verb; it
+handles both cases, choosing the path by whether a mapping already exists:
 
-- `/wiki-system notion init [<root-page-url>]` — first-time publish (create the
-  Notion mirror, write the mapping). Asserts there is no mapping yet.
-- `/wiki-system notion sync` — idempotent push (update the existing mirror; if no
-  mapping exists, it behaves exactly like `init`).
+- **First publish** (no `notion-sync.yaml` yet) → create the mirror under the
+  supplied root page and write the mapping. Pass the root page as the argument the
+  first time, or you'll be asked for it.
+- **Subsequent update** (mapping present) → idempotent push: re-render and push only
+  the pages whose content changed, updating the existing mirror in place (no
+  duplicates).
 
-`notion init` initializes the **Notion mirror**, not the local wiki — it is not
-the Mode 1 bootstrap. Either verb is a one-directional push: the local `wiki/`
-tree on disk is the source of truth; Notion is a render target. This prompt
-never pulls content back from Notion and never edits the source wiki.
+`notion sync` publishes the **Notion mirror**, not the local wiki — it is **not** the
+Mode 1 bootstrap (`init.md`, which generates the local wiki). It is a one-directional
+push: the local `wiki/` tree on disk is the source of truth; Notion is a render
+target. This prompt never pulls content back from Notion and never edits the source
+wiki.
 
 Its **audit companion** is `notion recheck` (`notion-recheck.md`): it fetches the
 live Notion content and **verifies it against the source code** (the same ground
@@ -26,18 +30,15 @@ never looks at Notion or the code; reach for `notion recheck` to confirm the
 **What the mirror looks like.** Under the user's Notion root page:
 
 ```
-[root page]   body = wiki/OVERVIEW.md
- ├── 📁 Library   body = wiki/library/OVERVIEW.md; holds the api/client/product tree
- ├── Notes        human-owned placeholder; created once, never overwritten;
- │                  does NOT mirror wiki/notes/ on disk
- └── Topics         body = wiki/topics.md; the cross-cutting index as its own page
+[root page]   body = wiki/index.md
+ ├── 📁 Library   body = wiki/library/index.md; holds the ai/technical/product tracks
+ └── Notes        human-owned placeholder; created once, never overwritten;
+                    does NOT mirror wiki/notes/ on disk
 ```
 
-So the sync publishes four things: **`wiki/OVERVIEW.md`** (into the root page's
-body), the **`wiki/library/` tree** (under a `Library` page), **`wiki/topics.md`**
-(under a `Topics` page), and a one-time **`Notes`** placeholder for humans to
-edit directly in Notion. `Topics` is ordered last among the root's children on
-purpose — see § GOTCHAS (em-dash titles).
+So the sync publishes three things: **`wiki/index.md`** (into the root page's
+body), the **`wiki/library/` tree** (under a `Library` page), and a one-time
+**`Notes`** placeholder for humans to edit directly in Notion.
 
 It reuses shared conventions — TWO ROOTS from `init.md`, the CWD pre-flight from
 `SKILL.md`, and the stub-first rationale from `init.md` — without redefining
@@ -97,8 +98,7 @@ This command drives Notion exclusively through the Notion MCP tools
 ## CONFIGURATION
 
 ```
-- root_body_source: wiki/OVERVIEW.md  # the root page body (OVERVIEW only)
-- topics_source: wiki/topics.md       # published as its own "Topics" child page under the root
+- root_body_source: wiki/index.md  # the root page body (overview only)
 - library_root: wiki/library/     # the tree published under the "Library" page
 - mapping_file: wiki/.internal/notion-sync.yaml
 - child_order: plan | alpha           # default plan: order children by wiki/.internal/plan.yaml
@@ -120,10 +120,9 @@ This command drives Notion exclusively through the Notion MCP tools
 ordering (and, in `notion recheck`, for verifier-verdict gating). The
 sync works on a hand-built `wiki/library/` with no plan present.
 
-**Scope.** This command publishes `wiki/OVERVIEW.md` (root page body),
-`wiki/topics.md` (its own `Topics` page), and the `wiki/library/` tree, and
-creates a `Notes` placeholder. It does **not** mirror `wiki/notes/` disk
-content, and never touches `wiki/.internal/`.
+**Scope.** This command publishes `wiki/index.md` (root page body) and the
+`wiki/library/` tree, and creates a `Notes` placeholder. It does **not** mirror
+`wiki/notes/` disk content, and never touches `wiki/.internal/`.
 
 ---
 
@@ -170,32 +169,42 @@ of this phase — do them first.)
 
 1. **CWD sanity** — confirm `wiki/library/` exists in CWD and contains at least
    one `.md`. If not, halt: this command needs a generated wiki (run `init.md`).
-2. **Note the invocation verb.** `init` asserts a first run; `sync` is the
-   general path. They diverge only here in N0:
-   - **`notion init` but a mapping already exists** → do not silently re-init.
-     Tell the user the mirror is already initialized and ask whether to run a
-     `sync` (update in place) instead, or to re-point at a new root page
-     (which abandons the old mirror). Proceed only on an explicit choice.
-   - **`notion sync` with no mapping** → proceed down the first-sync path below,
-     exactly as `init` would.
-   Beyond this branch, both verbs run N1–N5 identically.
+2. **First-sync vs re-sync is decided by the mapping, not a verb.** There is one
+   verb (`notion sync`); pick the path in step 3 by whether
+   `wiki/.internal/notion-sync.yaml` exists:
+   - **No mapping** → first-sync path (create the mirror under the supplied root).
+   - **Mapping present** → re-sync path (update in place).
+   - **Mapping present AND the user passed a *different* root URL** → do **not**
+     silently re-point. Tell the user the mirror is already initialized under
+     `meta.root_page_id` and ask whether to keep it (ignore the new URL) or re-point
+     to the new root (which abandons the old mirror and rebuilds it). Proceed only on
+     an explicit choice.
+   The rest of N1–N5 runs identically regardless of which path step 3 took.
 
-3. **Load the mapping** — read `wiki/.internal/notion-sync.yaml` if it exists.
+3. **Resolve the root page.** The root page is the **human-created "Wiki" root** —
+   this command **never creates it**. The user supplies its id/URL once; the mirror
+   takes the shape `root → { Library, Notes }` (the `Library` page holds the whole
+   `wiki/library/` tree). Load `wiki/.internal/notion-sync.yaml` if it exists:
    - **Absent → first-sync path.** The user must supply the root page. Accept it
-     as a command argument (`/wiki-system notion init <url-or-id>`) or ask:
-     "Paste the Notion page URL (or id) to publish the wiki under." Then
+     as a command argument (`/wiki-system notion sync <url-or-id>`) or ask:
+     "Paste the Notion page URL (or id) of the page to publish the wiki under." Then
      `notion-fetch` it to validate access and capture its id.
-     - If the root page is **non-empty** (has body content or existing child
-       pages), **stop and confirm**: this command will set the root page's body
-       from `wiki/OVERVIEW.md` and add `Library`, `Notes`, and `Topics` as
-       children. Pre-existing child pages that are not ours would be
-       at risk on later body updates. Recommend pointing at an empty page.
-       Proceed only on explicit confirmation; if proceeding, record the foreign
-       child ids so N3 preserves them.
    - **Present → re-sync path.** Read `meta.root_page_id` and `notion-fetch` it
      to confirm it is still reachable. If the fetch fails, halt and ask the user
      to re-supply the root page (the workspace/page may have changed).
-4. **Validate the mapping** against `spec/notion-sync-schema.md` § INVARIANTS.
+4. **Enumerate the root's current children (BOTH paths, every run).** From the
+   fetched root page, list its **direct** child pages and classify each:
+   - **ours** — the `Library` and `Notes` pages (matched by their mapping
+     `notion_page_id`, else by title);
+   - **foreign** — anything else a human added directly under the root.
+   Record the foreign child ids **for this run only** so N3 preserves them in the
+   root's child-ref render. Foreign children are **re-discovered every run** — never
+   persisted in the mapping, never modified, and reported in N5. (This is why a
+   human page added under the root after the first sync survives a later re-sync.)
+   On **first-sync**, if the root page also has foreign **body content** (not just
+   child pages), warn that this command will set the body from `wiki/index.md` and
+   recommend a dedicated page; proceed only on explicit confirmation.
+5. **Validate the mapping** against `spec/notion-sync-schema.md` § INVARIANTS.
    On violation, halt and report which invariant failed — do not silently
    rebuild, because a bad map can cause duplicate creates.
 
@@ -210,37 +219,38 @@ Sequential, fast. No MCP calls. Build the node tree.
 The top of the tree is fixed; the reference subtree is discovered from disk.
 
 - **root** node (`kind: root`, key `wiki/`) → the user's Notion root page.
-  `body_source: wiki/OVERVIEW.md` (OVERVIEW only — topics is its own page now).
-  Its children are exactly the **Library**, **Notes**, and **Topics** nodes,
-  **in that order** (Topics last — see § GOTCHAS). `has_children: true`.
+  `body_source: wiki/index.md`. Its children are exactly the **Library** and
+  **Notes** nodes, in that order. `has_children: true`.
 - **Library** node (`kind: folder`, key `wiki/library/`, `parent: wiki/`) →
   holds the whole reference subtree discovered below. `body_source` =
-  `wiki/library/OVERVIEW.md` **if it exists**, else `null` → its body is an
-  auto-generated child list (the N1.4 "folder with no OVERVIEW.md" path), flagged
-  in the report. (Many generated wikis, including this project, have no
-  top-level `wiki/library/OVERVIEW.md`.)
+  `wiki/library/index.md` **if it exists**, else `null` → its body is an
+  auto-generated child list (the N1.4 "folder with no index.md" path), flagged
+  in the report. (A standard generated wiki has a `wiki/library/index.md`; this
+  fallback only triggers on a hand-built tree.) The Library page's children are
+  the enabled track folders (`ai`, `technical`, `product`) discovered below. The
+  ai track's `index.md` is a normal disk-backed page and mirrors like any other —
+  there is no separate machine-only file to special-case.
 - **Notes** node (`kind: working`, key `wiki/notes/`, `parent: wiki/`,
   `body_source: null`) → the human-owned placeholder. `has_children: false`,
   no icon. Its body is `notes_placeholder` and is written only once (N3).
-- **Topics** node (`kind: leaf`, key `wiki/topics.md`, `parent: wiki/`,
-  `body_source: wiki/topics.md`) → the cross-cutting index as its own page.
-  `has_children: false`, no icon. Unlike `Notes`, it is a normal disk-backed
-  page: hashed and re-pushed whenever `wiki/topics.md` changes. It is a leaf
-  whose parent is the root (the one leaf that lives directly under `wiki/`, not
-  under `wiki/library/`).
 
 Then discover the reference subtree under the Library node:
 
-- Every subdirectory of `wiki/library/` that contains an `OVERVIEW.md` → a
-  **folder** node (`body_source` = that `OVERVIEW.md`).
-- Every `.md` file that is **not** an `OVERVIEW.md` and has no same-named sibling
+- Every subdirectory of `wiki/library/` (at any depth, including the `technical/`
+  and `product/` track folders) that contains an `index.md` → a **folder** node
+  (`body_source` = that `index.md`).
+- Every `.md` file that is **not** an `index.md` and has no same-named sibling
   directory → a **leaf** node (`body_source` = the file itself).
-- A folder node's children = its directory's non-`OVERVIEW` `.md` files (leaves)
+- A folder node's children = its directory's non-`index` `.md` files (leaves)
   + its immediate subdirectories (folders). Recurse. `has_children` = (children > 0).
 
-If `wiki/OVERVIEW.md` is missing, the root body falls back to an auto-generated
-child list; if `wiki/topics.md` is missing, skip the Topics node entirely. Flag
-either case in the report.
+If `wiki/index.md` is missing, the root body falls back to an auto-generated
+child list (links to `Library` + `Notes`) — a **degraded root**. Do **not**
+synthesize an overview here; generating `wiki/index.md` is `init`/`recheck`'s
+finalize job, not this publish command's. Flag it in the report **and** in the
+N5.3 summary explicitly recommend running `/wiki-system init` or
+`/wiki-system recheck` to generate a real `wiki/index.md`, then re-syncing. (The
+same fallback + nudge applies if `wiki/library/index.md` is missing.)
 
 ### N1.2 Extract title and body
 
@@ -253,11 +263,8 @@ For each node's `body_source`:
   one, but be defensive.
 
 Special cases:
-- **root node** — body = `body_source` (`wiki/OVERVIEW.md`, H1 stripped) only.
+- **root node** — body = `body_source` (`wiki/index.md`, H1 stripped) only.
   The root page title is left untouched unless `set_root_title: true`.
-- **Topics node** — a normal leaf: body = `wiki/topics.md` with its first H1
-  stripped (Notion stores it as the page title, e.g. "Topics — Cross-cutting
-  Index").
 - **working node** — no `body_source`; its body is the `notes_placeholder`
   text, written once in N3 and never recomputed.
 
@@ -276,9 +283,9 @@ re-syncs from reshuffling Notion pages.
   and list it under "incomplete — not published" in the report.
 - **Name collision** — a leaf `foo.md` AND a directory `foo/` in the same parent
   is ambiguous. Do not invent a merge; halt and ask the user to disambiguate.
-- **Folder with no `OVERVIEW.md`** — treat as a folder node with a derived title
+- **Folder with no `index.md`** — treat as a folder node with a derived title
   and an auto-generated body (just its child list); flag it. (The standard wiki
-  always has `OVERVIEW.md`; this only triggers on hand-built trees.)
+  always has `index.md`; this only triggers on hand-built trees.)
 - **Empty body** — allowed; the page is created with title + (folders) child
   list only.
 
@@ -298,9 +305,7 @@ Process the root first, then each level. For each node:
 
 - **Root node** → its Notion page already exists (`meta.root_page_id`). Do not
   create; just ensure it is in the mapping with `notion_page_id = root id`. Its
-  children to create this pass are `Library`, `Notes`, and `Topics`. The
-  `Topics` node is created like any other leaf (no special-casing — unlike
-  `Notes`, its body IS pushed in N3).
+  children to create this pass are `Library` and `Notes`.
 - **Notes node** → if absent (first run, or a human deleted it), create it
   with `notion-create-pages` under the root, `content: <notes_placeholder>`,
   no icon. **This is the only time its body is written.** If it already exists in
@@ -342,8 +347,8 @@ Start from the node's extracted body (N1.2) and transform:
 
 - **Provenance banner (prepend to every generated page)** — before the body, emit
   `provenance_banner` (§ CONFIGURATION) as a Notion **callout** block, per the
-  loaded markdown spec. Apply to the **root**, every **folder**, every **leaf**,
-  and **Topics** — every node this command renders. The **Notes** node is exempt
+  loaded markdown spec. Apply to the **root**, every **folder**, and every
+  **leaf** — every node this command renders. The **Notes** node is exempt
   (it is skipped in N3.2 and is human-owned). The banner is **static text**: never
   interpolate a timestamp, generator version, or any per-run value into it, or the
   body would re-hash and re-push on every sync. Because it is part of the hashed
@@ -357,11 +362,10 @@ Start from the node's extracted body (N1.2) and transform:
   Resolution:
   - Normalize the link target relative to the current file's directory
     (handle `./`, `../`, and path normalization).
-  - A link to another node's `body_source` or to a folder (`../api/`,
-    `../api/OVERVIEW.md`) → that node's Notion page.
-  - A link to `wiki/OVERVIEW.md` (or a relative `../../OVERVIEW.md`) → the
-    **root page**. A link to `wiki/topics.md` (or `../../topics.md`) → the
-    **Topics page** (its own page now, not the root body).
+  - A link to another node's `body_source` or to a folder
+    (`../technical/api/`, `../technical/api/index.md`) → that node's Notion page.
+  - A link to `wiki/index.md` (or a relative `../../index.md`) → the
+    **root page**.
   - Drop `#fragment` / `#Lnnn` anchors — Notion has no stable line/heading deep
     link here; link to the page and note dropped anchors in the report.
   - **Leave untouched**: external `http(s)://` links, links to source-code paths
@@ -374,10 +378,10 @@ Start from the node's extracted body (N1.2) and transform:
   the node's own children, so the block keeps them attached.) This is not just navigation: a
   `replace_content`/`update_content` that omits a child sub-page will **delete**
   that sub-page. Including every child preserves the hierarchy. The root's
-  children are `Library`, `Notes`, and `Topics` (plus any foreign children
-  recorded in N0), with `Topics` **last** (§ GOTCHAS); a folder's are its leaves
-  + subfolders. Leaf, `Topics`, and `Notes` nodes have no children and skip
-  this.
+  children are `Library` and `Notes` (plus any foreign children discovered under the
+  root in N0 step 4 — emit a `<page>` ref for each so the re-push does not delete them);
+  a folder's are its leaves + subfolders. Leaf and `Notes` nodes have no children
+  and skip this.
 - **Other Notion-flavored constructs** (tables, code fences, `mermaid` code
   blocks, callouts) — keep as-is if already valid per the spec; otherwise adjust
   to the spec. Do not invent syntax.
@@ -401,10 +405,10 @@ Start from the node's extracted body (N1.2) and transform:
     `notion-update-page` with `command: update_properties` to update the title.
   - **Icon**: if `has_children` flipped since last sync, add (`meta.folder_icon`)
     or remove (`"none"`) the icon accordingly.
-  - **Root node body**: render `wiki/OVERVIEW.md` (per N1.2) followed by child
-    refs for `Library`, `Notes`, and `Topics` — `Topics` last (§ GOTCHAS) —
-    (+ any foreign children recorded in N0 to preserve them). Leave the root
-    page's title alone unless `set_root_title: true`.
+  - **Root node body**: render `wiki/index.md` (per N1.2) followed by child
+    refs for `Library` and `Notes` (+ a `<page>` ref for every foreign child
+    discovered in N0 step 4, so the re-push preserves them). Leave the root page's
+    title alone unless `set_root_title: true`.
 - If `content_hash` is unchanged → **skip** (no write). Record as "unchanged".
 
 Update each node's `content_hash` and `synced_at` in the mapping as you push.
@@ -457,6 +461,7 @@ Mode: first-sync | re-sync
 ## Summary
 - Created: <n>   Updated: <n>   Unchanged: <n>   Skipped(incomplete): <n>
 - Orphans: <n> (archived <n> / left <n> / renamed <n>)
+- Foreign root children preserved: <n>
 
 ## Unresolved cross-links
 | Page | Link text | Target (unresolved) |
@@ -467,12 +472,16 @@ Mode: first-sync | re-sync
 - Nodes with no H1 (title derived): ...
 - `*TODO*` stubs not published: ...
 - Dropped link anchors (#fragment): ...
+- Degraded root: `wiki/index.md` missing → published a child-list fallback;
+  run `/wiki-system init` or `recheck` to generate the overview, then re-sync. (Omit if present.)
 ```
 
 ### N5.3 Summarize to the user
 
 Report counts, the root page URL, any unresolved links, and anything that needs
-attention (incomplete pages, orphans left, name collisions). Keep it tight.
+attention (incomplete pages, orphans left, name collisions, and — if `wiki/index.md`
+was missing — the degraded root, recommending `/wiki-system init` or `recheck` to
+generate the overview then re-sync). Keep it tight.
 
 ---
 
@@ -482,10 +491,11 @@ Run before reporting complete:
 
 - [ ] **No duplicates.** Every node maps to exactly one Notion page id; no
       id appears twice in the mapping.
-- [ ] **Tree parity.** The root, `Library`, `Notes`, `Topics`, and every node
+- [ ] **Tree parity.** The root, `Library`, `Notes`, and every node
       on disk under `wiki/library/` have a live Notion page; every Notion page
       in the mapping corresponds to a disk node, the `Notes` placeholder, or an
-      explicit `orphans[]` entry.
+      explicit `orphans[]` entry. (Foreign root children are not in the mapping —
+      they are preserved and reported, not parity-checked.)
 - [ ] **Child preservation verified, not assumed.** `allow_deleting_content`
       stayed off and orphan archives went through N4 — and, after each root/folder
       `replace_content`, re-fetch and confirm no `<page>` child was dropped and no
@@ -506,10 +516,17 @@ Run before reporting complete:
 
 - **One-directional.** Disk → Notion only. Never read content from Notion to
   overwrite the source; never edit any file under `wiki/`.
-- **Scope.** Publishes `wiki/OVERVIEW.md` (root body), `wiki/topics.md` (under a
-  `Topics` page), and the `wiki/library/` tree (under `Library`), and creates
-  a `Notes` placeholder. Does NOT mirror `wiki/notes/` disk content; never
-  touches `wiki/.internal/`.
+- **Scope.** Publishes `wiki/index.md` (root body) and the `wiki/library/` tree
+  (under `Library`), and creates a `Notes` placeholder. Does NOT mirror
+  `wiki/notes/` disk content; never touches `wiki/.internal/`.
+- **The root page is human-owned; this command never creates it.** The human
+  creates the "Wiki" root page and supplies its id; this command only populates it
+  (body from `wiki/index.md`) and gives it `Library` + `Notes` children. The root
+  page's title is left untouched (unless `set_root_title: true`).
+- **Foreign root children are preserved, not persisted.** Pages a human adds
+  directly under the root are re-discovered every run (N0 step 4), included in the
+  root's child refs so they survive the body re-push, never modified, and reported.
+  They are not stored in the mapping.
 - **`Notes` is human-owned.** Created once with placeholder text, then never
   overwritten — re-syncs preserve whatever humans put there.
 - **Idempotent.** A second run with no source changes performs zero Notion
@@ -536,10 +553,10 @@ child page or corrupts a cross-link.
   reference whose title contains an em-dash (`—`) or other markdown-significant
   characters, when it is NOT the final `<page>` block, makes Notion's parser
   swallow the **following** `<page>` block — the next child is dropped and
-  `replace_content` fails with *"would delete N child page(s)"*. Order the root's
-  children so such titles are last. (`Topics — Cross-cutting Index` is exactly
-  this case; the canonical order is `Library`, `Notes`, `Topics`.) Generalize:
-  put any special-char-titled child reference last among its siblings.
+  `replace_content` fails with *"would delete N child page(s)"*. Order siblings
+  so any special-char-titled child reference is **last** among them. (Most acute
+  for `<page>` lists with several children whose H1s carry em-dashes — e.g. a
+  folder of pages titled `Foo — Bar`.)
 - **The final `<page>` block needs a trailing newline.** End the rendered body
   with a newline after the last `<page>` block; an unterminated final block may
   not be recognized.

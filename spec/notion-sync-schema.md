@@ -44,62 +44,57 @@ meta:
   root_page_id: <uuid>          # the Notion page the whole tree lives under.
                                 # Captured + validated on first run; reused thereafter.
   root_page_url: <url>          # human-readable; for the report and for re-validation
-  schema_version: "1.1"         # bump on breaking changes to this schema
+  schema_version: "1.3"         # bump on breaking changes to this schema
                                 # 1.1: topics.md split out of the root body into its own
                                 #      "Topics" leaf page (parent wiki/); root has no extra_sources.
+                                # 1.2: folder index file renamed OVERVIEW.md -> index.md (root body =
+                                #      wiki/index.md, Library body = wiki/library/index.md); the
+                                #      technical track is always nested under wiki/library/technical/
+                                #      (repos live at wiki/library/technical/<repo>/, never directly
+                                #      under wiki/library/). Product track unchanged.
+                                # 1.3: topics.md dropped entirely (no "Topics" page). The root page's
+                                #      only children are Library + Notes. No topics leaf node.
   generator_version: "wiki-system v<N> · <model-id>"  # skill version + model of the last sync/recheck;
                                 # notion recheck compares it to the current generator to decide whether
                                 # a generator change (not just code change) warrants a fuller re-audit.
   synced_at: <ISO-8601>         # timestamp of the last fully-completed sync
   folder_icon: "📁"             # icon applied to every node with children.
                                 # Configurable; leaf and childless pages never get an icon.
-  set_root_title: false         # if true, set the root page title from wiki/OVERVIEW.md's H1;
+  set_root_title: false         # if true, set the root page title from wiki/index.md's H1;
                                 # default false leaves the user's root page title untouched.
   notes_placeholder: |        # body text written ONCE to the Notes page, then never touched.
     This space is maintained by hand in Notion — it is not generated or
     overwritten by the wiki sync. Add plans, notes, and RFCs here directly.
 
 # One entry per node in the published tree. A "node" is one of:
-#   - root      (kind: root    — the user's Notion root page. Body = wiki/OVERVIEW.md
-#                                 (OVERVIEW only). Children: the reference, working, and
-#                                 topics nodes, in that order (topics last). node key = wiki/ .)
-#   - reference (kind: folder  — the "Library" container page. Body = wiki/library/OVERVIEW.md.
-#                                 Holds the api/client/product subtree. parent = wiki/ .)
+#   - root      (kind: root    — the user's Notion root page. Body = wiki/index.md.
+#                                 Children: the reference and working nodes, in that
+#                                 order. node key = wiki/ .)
+#   - reference (kind: folder  — the "Library" container page. Body = wiki/library/index.md.
+#                                 Holds the enabled track subtrees (ai/, technical/, product/). parent = wiki/ .)
 #   - working   (kind: working — a human-owned placeholder page. Created ONCE with placeholder
 #                                 text, then NEVER overwritten on re-sync. Does NOT mirror
 #                                 wiki/notes/ disk content. parent = wiki/ .)
-#   - folder    (kind: folder  — any directory under library/ that contains OVERVIEW.md;
-#                                 body from that OVERVIEW.md)
-#   - leaf      (kind: leaf    — a standalone .md file. Either under library/ (e.g.
-#                                 architecture.md) OR the special wiki/topics.md leaf, whose
-#                                 parent is the root and which is published as the "Topics" page.)
+#   - folder    (kind: folder  — any directory under library/ that contains index.md;
+#                                 body from that index.md)
+#   - leaf      (kind: leaf    — a standalone .md file under library/ (e.g. architecture.md).)
 # Node key = the directory path (root/folder/working, trailing slash) or the file path (leaf).
-# Always relative to project root. The root keys on wiki/ ; the topics leaf keys on
-# wiki/topics.md (parent wiki/); everything reference and below keys under wiki/library/.
+# Always relative to project root. The root keys on wiki/ ; everything reference and
+# below keys under wiki/library/.
 pages:
   - node: wiki/                                 # root node → the user's Notion root page
     kind: root
-    body_source: wiki/OVERVIEW.md                # OVERVIEW only (topics is its own page)
+    body_source: wiki/index.md                # overview only
     notion_page_id: <uuid>                       # equals meta.root_page_id
     parent: null                                 # root has no parent
     title: null                                  # left untouched unless meta.set_root_title
-    has_children: true                           # children: reference + working + topics (topics last)
+    has_children: true                           # children: reference + working
     content_hash: <sha256>                       # hash of the rendered Notion markdown last pushed
-    synced_at: <ISO-8601>
-
-  - node: wiki/topics.md                         # the "Topics" page (cross-cutting index)
-    kind: leaf
-    body_source: wiki/topics.md
-    notion_page_id: <uuid>
-    parent: wiki/                                 # parent is the ROOT, not wiki/library/
-    title: "<H1 of wiki/topics.md>"
-    has_children: false
-    content_hash: <sha256>                        # normal disk-backed page: hashed + re-pushed on change
     synced_at: <ISO-8601>
 
   - node: wiki/library/                        # the "Library" container page
     kind: folder
-    body_source: wiki/library/OVERVIEW.md
+    body_source: wiki/library/index.md
     notion_page_id: <uuid>
     parent: wiki/
     title: "<H1 of body_source>"
@@ -117,21 +112,31 @@ pages:
     content_hash: null                           # never hashed/diffed — create-once, never overwrite
     synced_at: <ISO-8601>
 
-  - node: wiki/library/api/                    # folder node (now nested under Library)
+  - node: wiki/library/technical/              # the "Technical" track folder under Library
     kind: folder
-    body_source: wiki/library/api/OVERVIEW.md
+    body_source: wiki/library/technical/index.md
     notion_page_id: <uuid>
-    parent: wiki/library/                       # node key of the containing folder
+    parent: wiki/library/
     title: "<H1 of body_source>"
     has_children: true
     content_hash: <sha256>
     synced_at: <ISO-8601>
 
-  - node: wiki/library/api/architecture.md     # leaf node
-    kind: leaf
-    body_source: wiki/library/api/architecture.md
+  - node: wiki/library/technical/api/          # folder node (a repo, ALWAYS nested under technical/)
+    kind: folder
+    body_source: wiki/library/technical/api/index.md
     notion_page_id: <uuid>
-    parent: wiki/library/api/
+    parent: wiki/library/technical/             # the containing track folder
+    title: "<H1 of body_source>"
+    has_children: true
+    content_hash: <sha256>
+    synced_at: <ISO-8601>
+
+  - node: wiki/library/technical/api/architecture.md     # leaf node
+    kind: leaf
+    body_source: wiki/library/technical/api/architecture.md
+    notion_page_id: <uuid>
+    parent: wiki/library/technical/api/
     title: "<H1 of body_source>"
     has_children: false
     content_hash: <sha256>                        # of the rendered LOCAL markdown last pushed
@@ -147,7 +152,7 @@ pages:
 # archive the corresponding Notion page. Until then they remain recorded so the
 # Notion page is not orphaned silently.
 orphans:
-  - node: wiki/library/api/old-page.md
+  - node: wiki/library/technical/api/old-page.md
     notion_page_id: <uuid>
     detected_at: <ISO-8601>
 ```
@@ -161,8 +166,8 @@ Field order is free. Every field is required unless noted.
 ### `meta`
 
 - **root_page_id** — the Notion page that holds the whole mirror. Its body is
-  `wiki/OVERVIEW.md`; its direct children are the `Library`, `Notes`, and
-  `Topics` pages (Topics last). Captured on first run from the user-supplied
+  `wiki/index.md`; its direct children are the `Library` and `Notes` pages.
+  Captured on first run from the user-supplied
   URL/id, validated via `notion-fetch`, and persisted. Never re-prompted once set.
 - **folder_icon** — emoji set on every node with `has_children: true`. The
   icon rule is binary and structural: a node gets the icon iff it has
@@ -170,7 +175,7 @@ Field order is free. Every field is required unless noted.
   icon. The root page's icon is left untouched (it is the user's page).
 - **set_root_title** — default false. The root is the user's page, so its title
   is left alone; set true only if the project wants the root titled from
-  `wiki/OVERVIEW.md`'s H1.
+  `wiki/index.md`'s H1.
 - **notes_placeholder** — the body written to the `Notes` page the first
   time it is created. The page is human-owned thereafter: re-syncs never
   overwrite it (see `pages[].kind: working`).
@@ -182,21 +187,19 @@ Field order is free. Every field is required unless noted.
 
 - **node** — the structural key. root/folder/working nodes key on the directory
   path (trailing slash); leaf nodes key on the `.md` file path. Always relative
-  to project root. The root keys on `wiki/`; the Topics page keys on
-  `wiki/topics.md` (parent `wiki/`); reference and below key under
+  to project root. The root keys on `wiki/`; reference and below key under
   `wiki/library/`; the working placeholder keys on `wiki/notes/`.
 - **kind** — `root` | `folder` | `leaf` | `working`. Exactly one `root` node
   (keyed `wiki/`, `notion_page_id` == `meta.root_page_id`), exactly one
-  `working` node, the `Library` container is the `folder` node keyed
-  `wiki/library/`, and the `Topics` page is the `leaf` node keyed
-  `wiki/topics.md` (the one leaf whose parent is the root).
+  `working` node, and the `Library` container is the `folder` node keyed
+  `wiki/library/`. All `leaf` nodes live under `wiki/library/`.
 - **body_source** — the markdown file whose content (minus its H1) becomes the
   Notion page body.
-  - `root` → `wiki/OVERVIEW.md` (OVERVIEW only; topics is its own `leaf` page).
-  - `folder` → the `OVERVIEW.md` inside the directory, or `null` if it has none
+  - `root` → `wiki/index.md` (overview only).
+  - `folder` → the `index.md` inside the directory, or `null` if it has none
     (its body becomes an auto-generated child list). The `Library` container is
-    a folder node and commonly has no `wiki/library/OVERVIEW.md`.
-  - `leaf` → the file itself (including the Topics page → `wiki/topics.md`).
+    a folder node and commonly has no `wiki/library/index.md`.
+  - `leaf` → the file itself.
   - `working` → `null`; its body is `meta.notes_placeholder`, not a disk file.
 - **notion_page_id** — the live Notion page. Absent/null until the page is
   created. If a `notion-fetch` on this id later fails (page deleted/archived in
@@ -206,7 +209,7 @@ Field order is free. Every field is required unless noted.
   page under the correct Notion parent (creation is strictly top-down).
 - **has_children** — drives the icon rule and the child-preservation rule
   during updates (see `../notion.md` § N3). Recomputed every run; a leaf that
-  gains a sibling `OVERVIEW.md`/subdir, or a folder that loses its children,
+  gains a sibling `index.md`/subdir, or a folder that loses its children,
   flips and the icon is added/removed accordingly.
 - **content_hash** — sha256 of the **rendered Notion markdown that was actually
   pushed** (after cross-link resolution and after appending child-page
@@ -231,7 +234,7 @@ Field order is free. Every field is required unless noted.
 
 This file is a **cache/optimization**, not the sole source of truth for the
 local↔Notion correspondence. Notion is self-describing: its page tree mirrors the
-disk tree (root → `Library` → `api`/`client`/`product` → …), so the mapping can
+disk tree (root → `Library` → `ai`/`technical`/`product` → repos → …), so the mapping can
 be reconstructed by walking Notion from the root page and matching each page to a
 disk node by tree position + title. `notion recheck` does exactly this when the
 file is missing or stale (e.g. a fresh checkout, a different machine, or a lost
@@ -270,23 +273,24 @@ A valid `wiki/.internal/notion-sync.yaml` must satisfy all of:
 
 1. Exactly one `pages[]` entry has `kind: root` (keyed `wiki/`), and its
    `notion_page_id` equals `meta.root_page_id`.
-2. Exactly one `pages[]` entry has `kind: working` (keyed `wiki/notes/`),
-   exactly one `folder` node is keyed `wiki/library/` (the Library
-   container), and exactly one `leaf` node is keyed `wiki/topics.md` (the Topics
-   page). All three have `parent: wiki/`.
+2. Exactly one `pages[]` entry has `kind: working` (keyed `wiki/notes/`,
+   `parent: wiki/`), and exactly one `folder` node is keyed `wiki/library/`
+   (the Library container, `parent: wiki/`). The only `pages[]` children of the
+   root are these two (Library + Notes). Foreign pages a human adds under the root
+   are NOT in `pages[]` — `notion sync` re-discovers and preserves them each run
+   (see `../notion.md` N0 step 4); they are never persisted here.
 3. Every non-root node's `parent` refers to an existing node key in `pages[]`.
 4. Every `node` path starts with `wiki/`. root/folder/working keys end with
-   `/`; leaf keys end with `.md` (the Topics leaf, `wiki/topics.md`, is the one
-   leaf whose parent is `wiki/` rather than a `wiki/library/` folder).
+   `/`; leaf keys end with `.md` and live under `wiki/library/`.
 5. No two nodes share the same `node` key or the same `notion_page_id`.
 6. A node's `body_source` exists on disk at sync time, EXCEPT: the `working` node
    (always `body_source: null`), and any `folder` node whose directory has no
-   `OVERVIEW.md` (`body_source: null` → auto child-list body). A node whose
+   `index.md` (`body_source: null` → auto child-list body). A node whose
    `body_source` *vanished* (it had one and the file was deleted) belongs in
    `orphans[]`, not `pages[]`.
 7. `has_children: true` ⇒ the node is `root` or `folder`. `leaf` and `working`
    nodes always have `has_children: false`.
-8. `meta.schema_version` matches the version this file documents (`1.1`).
+8. `meta.schema_version` matches the version this file documents (`1.3`).
 
 The sync command validates 1–5 and 7 before writing, and reconciles 6 (moving
 vanished nodes to `orphans[]`) during its reconcile phase. `notion recheck`,
