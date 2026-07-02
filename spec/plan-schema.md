@@ -34,36 +34,44 @@ meta:
                               # is opt-in). The orchestrator only plans sections/pages whose
                               # owner_agent is in this list; a disabled track costs nothing.
                               # See ../init.md § Documentation Tracks for the selection flow + defaults.
-  repos:
-    - name: <string>
-      path: <absolute path>
+  wiki_dir: wiki-<project>    # docs folder name (its own git repo, unique per project, e.g. wiki-acme).
+                              # Commands resolve the docs root by the wiki-*/ dir holding this
+                              # .internal/plan.yaml. In every path below, `wiki/` is the LOGICAL
+                              # docs root and resolves to wiki_dir at runtime.
+  repos:                      # the project's canonical repo set (a collection of repos), matched
+                              # to workspace folders BY FOLDER NAME. A repo absent from the workspace
+                              # is skipped as partial access (../recheck.md Phase R1 step 5) — not an error.
+    - name: <folder name>     # the repo's folder name in the workspace (clone under this name)
+      path: <workspace-relative folder>   # normally the same as name
   generated_at: <ISO-8601 date>
   generator_version: "wiki-system v<N> · <model-id>"  # skill version + model that produced this plan;
                                                        # lets recheck detect generator drift, not just source drift
-  schema_version: "1.3"  # bump on breaking changes to this schema
+  schema_version: "1.4"  # bump on breaking changes to this schema
                          # 1.2: folder index file renamed OVERVIEW.md -> index.md; the technical
-                         #      track is always nested under wiki/library/technical/<repo>/ (a
-                         #      `technical` section with parent `library`), never directly under
-                         #      wiki/library/. Product track unchanged at wiki/library/product/.
-                         # 1.3: third track `ai` (wiki/library/ai/) added — agent-optimized,
+                         #      track is always nested under wiki/TECHNICAL/<repo>/, one folder
+                         #      per repo, never directly under wiki/TECHNICAL/.
+                         # 1.3: third track `ai` (wiki/AI/) added — agent-optimized,
                          #      code-grounded, default-ON; owner_agent gains the value `ai`;
                          #      meta.tracks records which tracks are enabled (default [ai, product]).
+                         # 1.4: workspace model — meta.wiki_dir records the per-project docs folder
+                         #      name (wiki-<project>); `wiki/` in paths is the logical docs root
+                         #      resolved to wiki_dir; repos matched by folder name; an absent repo
+                         #      is partial access (recheck R1 step 5), not an error.
 
-# Sections correspond to folders under wiki/library/. Section paths always
-# start with wiki/library/. The library has up to THREE tracks, all under wiki/library/:
-#   - ai        (wiki/library/ai/)              — agent-optimized, DEFAULT ON; one `ai` section
-#                                                  (parent `library`); see ../specialists/ai.md.
-#   - technical (wiki/library/technical/<repo>/) — repo-scoped developer reference; ALWAYS nested
-#                                                  under technical/ (a `technical` section, parent
-#                                                  `library`), one folder per repo, even for one repo.
-#   - product   (wiki/library/product/)          — feature-scoped, code-free.
-# Only tracks listed in meta.tracks are planned. The orchestrator never plans content under
-# wiki/notes/ or at the wiki root — those are hand-written.
+# Sections correspond to folders under wiki/<TRACK>/, where <TRACK> is one of the
+# uppercase literals AI, TECHNICAL, PRODUCT. There are up to THREE tracks:
+#   - ai        (wiki/AI/)              — agent-optimized, DEFAULT ON; one `ai` section
+#                                          (parent null); see ../specialists/ai.md.
+#   - technical (wiki/TECHNICAL/<repo>/) — repo-scoped developer reference; ALWAYS nested
+#                                          one folder per repo, even for a single repo.
+#   - product   (wiki/PRODUCT/)          — feature-scoped, code-free.
+# Only tracks listed in meta.tracks are planned. The orchestrator never plans content at
+# the wiki root — those are hand-written.
 # A section with has_overview: true produces an index.md at that folder.
 # Nesting is arbitrary depth — use it. The scope-to-depth table below forces it.
 sections:
-  - id: <stable slug, e.g. library/technical/api/models or library/ai/contracts>
-    path: wiki/library/<slug>/
+  - id: <stable slug, e.g. technical/api/models or ai/contracts>
+    path: wiki/<TRACK>/<slug>/
     parent: <parent section id, or null for top-level>
     owner_agent: technical | product | ai
     has_overview: true | false
@@ -73,10 +81,10 @@ sections:
       <2-5 line structured summary: tech stack, key subsystems, entry points.
       This is what writers receive in lieu of re-scanning the project.>
 
-# Pages are leaf documents. Page paths always start with wiki/library/.
+# Pages are leaf documents. Page paths always start with wiki/<TRACK>/.
 pages:
-  - id: <stable slug, e.g. library/technical/api/models/user>
-    path: wiki/library/<slug>.md
+  - id: <stable slug, e.g. technical/api/models/user>
+    path: wiki/<TRACK>/<slug>.md
     section: <section id this page belongs to>
     owner_agent: technical | product | ai
     scope_files: [<glob or file paths relative to project root>]
@@ -105,14 +113,14 @@ Field order is free. Every listed field is required unless marked optional.
 ### `sections[]`
 
 - **id** — stable slug; used as the key when agents reference the section.
-  Must match the path structure: `technical/api/models` → `wiki/library/technical/api/models/`.
-- **parent** — the section id one level up. `null` for the top-level `library`
+  Must match the path structure: `technical/api/models` → `wiki/TECHNICAL/api/models/`.
+- **parent** — the section id one level up. `null` for a top-level track
   section. The track sections `ai`, `technical`, and `product` have
-  `parent: library`; each repo section (e.g. `api`) has `parent: technical`.
+  `parent: null`; each repo section (e.g. `api`) has `parent: technical`.
 - **owner_agent** — which specialist writes this section, and which verifier
   `mode` checks it. `technical` → repo-scoped developer docs (`../specialists/technical.md`);
   `product` → feature-scoped, code-free docs (`../specialists/product.md`);
-  `ai` → agent-optimized, code-grounded docs under `wiki/library/ai/`
+  `ai` → agent-optimized, code-grounded docs under `wiki/AI/`
   (`../specialists/ai.md`). The value must be one of the enabled `meta.tracks`.
 - **has_overview** — `true` means the section is a folder with an
   `index.md`. `false` means the section is a single leaf page (in which
@@ -124,16 +132,16 @@ Field order is free. Every listed field is required unless marked optional.
 
 ### `pages[]`
 
-- **id** — stable slug matching `path` minus `wiki/library/` and `.md`
-  (e.g., `wiki/library/technical/api/authentication.md` → id
-  `library/technical/api/authentication`, or a shorter convention such as
-  `api/authentication` that keeps the repo name but drops the `library/technical/`
+- **id** — stable slug matching `path` minus `wiki/<TRACK>/` and `.md`
+  (e.g., `wiki/TECHNICAL/api/authentication.md` → id
+  `technical/api/authentication`, or a shorter convention such as
+  `api/authentication` that keeps the repo name but drops the `technical/`
   prefix — pick one convention per project and document it; whichever you choose,
   keep it stable across runs so verification report filenames don't churn).
 - **section** — the id of the section this page belongs to. Every page
   belongs to exactly one section. The orchestrator-generated root file
-  (`wiki/index.md`) and the contents of `wiki/notes/` are not part of the
-  plan; they have no `section` because they are not in `pages[]` at all.
+  (`wiki/index.md`) is not part of the plan; it has no `section` because it
+  is not in `pages[]` at all.
 - **scope_files** — list of file paths or globs in the source repo that
   this page documents. The writer reads these; the verifier verifies
   claims against these.
@@ -214,7 +222,7 @@ Each verifier sub-agent writes a YAML report to
 
 ```yaml
 page_id: <stable slug — same id as in wiki/.internal/plan.yaml pages[]>
-page_path: wiki/library/<slug>.md
+page_path: wiki/<TRACK>/<slug>.md
 mode: technical | product | ai
 verified_at: <ISO-8601 timestamp>
 verdict: pass | fail_soft | fail_hard
@@ -280,7 +288,7 @@ deterministically.
 ````markdown
 ---
 page_id: <plan slug>
-page_path: wiki/library/<slug>.md
+page_path: wiki/<TRACK>/<slug>.md
 run_id: <ISO-8601 timestamp of the run that produced the failure>
 verdict: fail_hard | fail_hard_post_user
 verdict_reason: "<short string — e.g. '1 critical issue', '5 improvement issues', 'writer–verifier disagreement', 'incomplete stub'>"
@@ -408,7 +416,7 @@ split_request:
     parent_becomes: overview
     children:
       - id: <slug>
-        path: wiki/library/<slug>.md       # MUST start with wiki/library/ and end in .md
+        path: wiki/<TRACK>/<slug>.md       # MUST start with wiki/<TRACK>/ and end in .md
         scope_files: [...]
         scope_loc_estimate: <integer>
         links_to: [...]
@@ -436,9 +444,12 @@ sibling pages itself.
 
 A valid `wiki/.internal/plan.yaml` must satisfy all of:
 
-1. Every `sections[].path` starts with `wiki/library/`. Every `pages[].path`
-   starts with `wiki/library/` and ends with `.md`. Pages outside
-   `wiki/library/` are not part of the auto-gen plan and must not appear.
+1. Every `sections[].path` starts with `wiki/<TRACK>/`, and every
+   `pages[].path` starts with `wiki/<TRACK>/` and ends with `.md`, where
+   `<TRACK>` is one of `{AI, TECHNICAL, PRODUCT}`. The folder names are
+   literally uppercase — `AI`, `TECHNICAL`, `PRODUCT`, never lowercase (casing
+   invariant). Technical pages nest as `wiki/TECHNICAL/<repo>/…`. Pages outside
+   `wiki/<TRACK>/` are not part of the auto-gen plan and must not appear.
 2. Every page's `section` refers to an existing section id.
 3. Every section's `parent` refers to an existing section id or `null`.
 4. Every id in any `links_to` list refers to an existing page or section.
@@ -455,7 +466,7 @@ A valid `wiki/.internal/plan.yaml` must satisfy all of:
     every enabled track has at least one section. `scope_loc_estimate` and the
     scope-to-depth invariant (#8) apply to `technical` and `ai` sections; a
     `product` section is feature-sized, not LOC-sized, and is exempt from #8.
-11. `meta.schema_version` matches the version this file documents (`1.3`).
+11. `meta.schema_version` matches the version this file documents (`1.4`).
 
 The orchestrator validates these in Phase 2 before writing the plan and
 in Quality Gates at the end of Phase 3e.

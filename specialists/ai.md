@@ -54,9 +54,9 @@ agents (it is retrieved as conflicting "distractor" context). Know your lane:
 | Artifact | Audience | Consumption | Source of truth for |
 | --- | --- | --- | --- |
 | `CLAUDE.md` (root) | the agent's *always-loaded* boot context | read whole, every session | "how to be an agent in this repo" — conventions, commands, where docs live |
-| **`library/ai/` (you)** | an agent doing a *specific task* | **retrieved in fragments, on demand** | **the invariants an agent must not violate, the contracts of agent-facing surfaces, and the runbooks for common changes** |
-| `library/technical/` | human developers | browsed, read top-to-bottom | "how this code works" (narrative) |
-| `library/product/` | PMs / leadership | read linearly | "what the product does" (code-free) |
+| **`wiki/AI` (you)** | an agent doing a *specific task* | **retrieved in fragments, on demand** | **the invariants an agent must not violate, the contracts of agent-facing surfaces, and the runbooks for common changes** |
+| `wiki/TECHNICAL` | human developers | browsed, read top-to-bottom | "how this code works" (narrative) |
+| `wiki/PRODUCT` | PMs / leadership | read linearly | "what the product does" (code-free) |
 
 **You are not** a chunk-optimized restatement of the technical track, and **you are not**
 CLAUDE.md-with-more-words. You are the layer that lets an agent (a) load the rules it must
@@ -96,10 +96,10 @@ knows.
 6. **Point at the source of truth.** For any surface that already has a machine-readable
    definition (OpenAPI/swagger, generated types, JSON schema, env example, scripts), link
    to it and document only what the agent can't get from it (intent, gotchas, when-to-use).
-7. **Body-surfaced metadata.** Put provenance in the body, not (only) frontmatter — most
-   chunkers strip frontmatter. Each page opens with a one-line context statement, and
-   carries a `## Provenance` line (source paths + the date verified). Optional YAML
-   frontmatter is allowed for tooling but is never the *only* place a fact lives.
+7. **Body-surfaced metadata.** Put provenance in the body — most chunkers strip frontmatter.
+   Each page opens (after the generated-header line) with a one-line context statement, and
+   carries a `## Provenance` line (source paths + the date verified). Do not use pre-H1 YAML
+   frontmatter — the generated-header is line 1 and all facts live in the body.
 8. **Clean Markdown; exact strings verbatim.** Markdown is the default. Write commands,
    env-var names, error codes, enum values, and paths **verbatim** (so lexical retrieval
    matches them). Prefer short lists over wide tables for retrieved reference data. Use
@@ -128,7 +128,7 @@ same way the technical specialist does. Note which machine sources of truth alre
 
 ### 2. ASSESS STATE
 
-Bootstrap / Growth / Maintenance, same as the other specialists. If a `wiki/library/ai/`
+Bootstrap / Growth / Maintenance, same as the other specialists. If a `wiki/AI`
 already exists, read it before planning; audit for drift, stale anchors, and duplication
 against the technical track.
 
@@ -147,20 +147,20 @@ exact lines behind every claim.
 ### 5. CLAUDE.md — not your job
 
 Do **not** create or edit `CLAUDE.md`. It is owned by `/wiki-system claude`
-(`../claude-md.md`). The generated `CLAUDE.md` will *point* agents at `wiki/library/ai/`;
+(`../claude-md.md`). The generated `CLAUDE.md` will *point* agents at `wiki/AI`;
 you never write it.
 
 ---
 
 ## OUTPUT STRUCTURE
 
-All AI-track output lives under `wiki/library/ai/`. The track is **standalone-complete**:
+All AI-track output lives under `wiki/AI`. The track is **standalone-complete**:
 it always carries enough for an agent to act *without* the technical or product tracks
 being present (those are off by default). When the technical track *is* present, link to it
 for deep narrative — but keep the AI track's own pages, lean and agent-oriented, in place.
 
 ```
-wiki/library/ai/
+wiki/AI/
 ├── index.md            ← navigable machine index (the "front door"): H1 + one-line
 │                          summary + link-lists by area + an "## Optional" group that can
 │                          be dropped under context pressure. Local relative paths, not URLs.
@@ -190,7 +190,7 @@ Scale to the project (scope-to-depth rule from `../spec/plan-schema.md`):
 - A folder with children gets an `index.md` that summarizes and links (it never duplicates
   child content).
 
-### wiki/library/ai/index.md (the machine index)
+### wiki/AI/index.md (the machine index)
 
 The front door an agent (or `CLAUDE.md`, or a retriever) is pointed at. It is an
 `llms.txt`-style **local index** (a curated map you point your own agent at — not an SEO /
@@ -209,11 +209,16 @@ Use **relative repo paths** (this is a local file tree, not a served site).
 
 ## PAGE STRUCTURES (by type)
 
-Every page opens with: an H1, then a **one-line self-contained context statement**, then a
+Every generated page's FIRST line is the generated-header, verbatim:
+
+```
+> _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._
+```
+
+Then the H1, then a **one-line self-contained context statement**, then a
 `## Provenance` line (`Source: <paths> · Verified: <date>`). Then the type-specific body.
-Optional YAML frontmatter (`id`, `title`, `track: ai`, `scope_files`, `source_commit`,
-`last_verified`, `related`) may precede the H1 for tooling — but the same facts must also
-appear in the body, since frontmatter is stripped by chunkers.
+The header is line 1, always — no YAML frontmatter precedes it. Put all provenance facts
+in the body (the context line + `## Provenance`), since frontmatter is stripped by chunkers.
 
 **invariants.md** — a front-loaded, grouped list of atomic must-not-violate facts, each
 anchored:
@@ -327,8 +332,8 @@ phrasing; deprecated content is labelled, not deleted silently.
 
 ## CONSTRAINTS
 
-- Writers produce files **only under `wiki/library/ai/`**. Never create or modify the wiki
-  root (`wiki/index.md`) or `wiki/notes/` — those are out of scope.
+- Writers produce files **only under `wiki/AI`**. Never modify the wiki root
+  (`wiki/index.md`) — it is out of scope.
 - Preserve content between `<!-- AUTOREGEN_SKIP_BEGIN -->` and `<!-- AUTOREGEN_SKIP_END -->`
   markers verbatim.
 - **Link, don't restate.** Point at the technical track (when present) and at machine

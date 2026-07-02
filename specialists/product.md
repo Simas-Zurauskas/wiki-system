@@ -197,56 +197,52 @@ topic with sub-pages just to match the depth of a sibling.
 
 ### Structural rule: feature-first, then subtopics
 
-All product writer output goes under `wiki/library/product/`. Within that
+All product writer output goes under `wiki/PRODUCT/`. Within that
 folder, structure is determined by the product's major feature areas — NOT by
 code boundaries. Each feature area gets its own folder and is documented as a
 complete product experience.
 
-**Do NOT mirror code architecture inside `wiki/library/product/`.** Organize
-by what the user experiences: `wiki/library/product/course-creation/`,
-`wiki/library/product/learning-experience/`, `wiki/library/product/assessment/`.
+**Do NOT mirror code architecture inside `wiki/PRODUCT/`.** Organize
+by what the user experiences: `wiki/PRODUCT/course-creation/`,
+`wiki/PRODUCT/learning-experience/`, `wiki/PRODUCT/assessment/`.
 
 The wiki root (`wiki/index.md`) is hand-written and out of
 scope for product writers. Writers never create or modify files at the wiki
-root or under `wiki/notes/`.
+root.
 
 ```
 wiki/
 ├── index.md                       ← HAND-WRITTEN. Out of scope for writers.
 │
-├── library/
-│   ├── index.md                      ← library overview (links the enabled tracks)
-│   ├── ai/                           ← AI track output (default; sibling track)
-│   ├── technical/                    ← technical writer output (sibling track)
-│   │   ├── api/
-│   │   └── client/
-│   │
-│   └── product/                      ← AUTO-GEN. Product writer produces content here.
-│       ├── index.md               ← product overview, feature map, how areas connect
-│       ├── system-overview.md        ← high-level architecture from product perspective
-│       ├── authentication.md         ← signup, login, sessions — user's access experience
-│       │
-│       ├── course-creation/          ← everything about creating a course
-│       │   ├── index.md           ← summary of the creation flow
-│       │   ├── wizard.md             ← step-by-step wizard experience
-│       │   ├── ai-refinement.md      ← chat-based course refinement
-│       │   └── structure-output.md   ← what gets generated (modules, lessons)
-│       │
-│       ├── learning-experience/      ← everything about consuming a course
-│       │   ├── index.md
-│       │   ├── lesson-viewer.md      ← content types, interactions
-│       │   ├── code-exercises.md     ← coding challenges and execution
-│       │   └── notes-bookmarks.md    ← personal learning tools
-│       │
-│       ├── assessment/               ← quizzes, mastery, spaced review
-│       │   ├── index.md
-│       │   ├── quizzes.md
-│       │   ├── mastery-tiers.md
-│       │   └── spaced-review.md
-│       │
-│       └── dashboard.md              ← user's home view, progress tracking
+├── AI/                                ← AI track output (always on; sibling track)
+├── TECHNICAL/                         ← technical writer output (sibling track)
+│   ├── api/
+│   └── client/
 │
-└── notes/                          ← HAND-WRITTEN. Out of scope for writers.
+└── PRODUCT/                           ← AUTO-GEN. Product writer produces content here.
+    ├── index.md                    ← product overview, feature map, how areas connect
+    ├── system-overview.md             ← high-level architecture from product perspective
+    ├── authentication.md              ← signup, login, sessions — user's access experience
+    │
+    ├── course-creation/               ← everything about creating a course
+    │   ├── index.md                ← summary of the creation flow
+    │   ├── wizard.md                  ← step-by-step wizard experience
+    │   ├── ai-refinement.md           ← chat-based course refinement
+    │   └── structure-output.md        ← what gets generated (modules, lessons)
+    │
+    ├── learning-experience/           ← everything about consuming a course
+    │   ├── index.md
+    │   ├── lesson-viewer.md           ← content types, interactions
+    │   ├── code-exercises.md          ← coding challenges and execution
+    │   └── notes-bookmarks.md         ← personal learning tools
+    │
+    ├── assessment/                    ← quizzes, mastery, spaced review
+    │   ├── index.md
+    │   ├── quizzes.md
+    │   ├── mastery-tiers.md
+    │   └── spaced-review.md
+    │
+    └── dashboard.md                   ← user's home view, progress tracking
 ```
 
 Each feature folder is a **complete, self-contained product story**. A product
@@ -254,14 +250,14 @@ manager reading about assessment should understand quizzes, mastery, and spaced
 review without needing to read the course creation docs. Cross-references between
 feature areas are encouraged, but each area's docs must stand on their own.
 
-### wiki/library/product/index.md
+### wiki/PRODUCT/index.md
 
 The product overview is the entry point into product documentation. It must
 contain:
 
 - One-paragraph product description
 - Feature map showing how the major areas connect
-- Links to every feature area under `wiki/library/product/`
+- Links to every feature area under `wiki/PRODUCT/`
 - Brief description of the product's key differentiators
 
 The wiki **root** overview (`wiki/index.md`) is separate, hand-written, and
@@ -405,6 +401,14 @@ do not modify sibling pages from your own dispatch.
 Each documentation page should include the following sections where applicable.
 Not every page needs every section — omit sections that would be empty or forced.
 
+- **Generated-header** — The FIRST line of every generated page, verbatim:
+
+  ```
+  > _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._
+  ```
+
+  This line contains no code identifiers, so it is exempt from the ZERO CODE
+  REFERENCES rule.
 - **Opening line** — One sentence explaining what this page covers.
 - **Core content** — The main explanation of how the feature works. Use flowcharts
   (Mermaid) for complex flows and state machines.
@@ -414,9 +418,9 @@ Not every page needs every section — omit sections that would be empty or forc
 - **See Also** — Links to related product pages. Every page should connect to
   at least one other page.
 - **Technical Reference** (optional) — Links to corresponding technical wiki pages
-  for readers who want implementation details. Example: product/authentication.md
-  links to technical/api/authentication.md and technical/client/authentication.md.
-  These are relative paths (e.g., `../technical/api/authentication.md`).
+  for readers who want implementation details. Example: PRODUCT/authentication.md
+  links to TECHNICAL/api/authentication.md and TECHNICAL/client/authentication.md.
+  These are relative paths (e.g., `../TECHNICAL/api/authentication.md`).
 
 ---
 
@@ -512,9 +516,11 @@ path, not assumed from naming or scan summaries. See VERIFICATION RULES above.
 
 ## CONSTRAINTS
 
-- Writers produce files **only under `wiki/library/product/`**. Never create
-  or modify files at the wiki root (`wiki/index.md`) or
-  under `wiki/notes/`. Those are hand-written and out of scope.
+- Writers produce files **only under `wiki/PRODUCT/`**. Never create
+  or modify files at the wiki root (`wiki/index.md`). That is
+  hand-written and out of scope.
+- Every generated page's FIRST line is the generated-header, verbatim:
+  `> _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._`
 - Writers must preserve content between `<!-- AUTOREGEN_SKIP_BEGIN -->` and
   `<!-- AUTOREGEN_SKIP_END -->` markers verbatim. Treat content inside the
   markers as authoritative; do not rewrite, summarize, or expand it.
@@ -532,7 +538,7 @@ path, not assumed from naming or scan summaries. See VERIFICATION RULES above.
   document in silos
 - Cross-section links to technical wiki pages are required wherever a
   counterpart page exists. Each product page should include a "Technical
-  Reference" section linking to the corresponding technical/<repo>/ pages.
+  Reference" section linking to the corresponding TECHNICAL/<repo>/ pages.
 - No document should be a wall of text — use headings, short paragraphs,
   tables, and diagrams
 - If something is unclear from the codebase alone, note it as unknown rather

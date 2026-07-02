@@ -180,124 +180,113 @@ technical track and is documented as a self-contained world with its own interna
 topic structure.
 
 **Do NOT create topic folders that mix content from multiple repos.** For example,
-`wiki/library/technical/auth/` containing both backend JWT logic and frontend
+`wiki/TECHNICAL/auth/` containing both backend JWT logic and frontend
 session management is wrong — the backend auth belongs in
-`wiki/library/technical/api/auth/` and the frontend auth belongs in
-`wiki/library/technical/client/auth/`. Cross-boundary topics (like the end-to-end
+`wiki/TECHNICAL/api/auth/` and the frontend auth belongs in
+`wiki/TECHNICAL/client/auth/`. Cross-boundary topics (like the end-to-end
 auth flow that spans both) belong as cross-cutting pages directly inside
-`wiki/library/technical/`, with bilateral links into each repo folder.
+`wiki/TECHNICAL/`, with bilateral links into each repo folder.
 
-All technical writer output goes under `wiki/library/technical/`. The
-`wiki/library/technical/` folder contains:
+All technical writer output goes under `wiki/TECHNICAL/`. The
+`wiki/TECHNICAL/` folder contains:
 - `index.md` — the technical track overview (writer-produced)
 - One folder per repo/package, **always** nested here
-  (`wiki/library/technical/api/`, `wiki/library/technical/client/`) — even a
-  single-repo project nests its one folder under `technical/`, never directly
-  under `wiki/library/`
-- Optionally a small number of cross-repo pages at `wiki/library/technical/`
+  (`wiki/TECHNICAL/api/`, `wiki/TECHNICAL/client/`) — even a
+  single-repo project nests its one folder under `TECHNICAL/`, never directly
+  under `wiki/`
+- Optionally a small number of cross-repo pages at `wiki/TECHNICAL/`
 
-(`wiki/library/ai/` (agent) and `wiki/library/product/` (plain-language) are the default
-tracks; both are siblings of `technical/`. `wiki/library/index.md` is the library overview
-that links the enabled tracks. The technical track is opt-in — generated only when the user
+(`wiki/AI` (agent) and `wiki/PRODUCT` (plain-language) are the other tracks; both are
+siblings of `TECHNICAL/`. The technical track is opt-in — generated only when the user
 asks for it.)
 
 The wiki root (`wiki/index.md`) is hand-written and out of
 scope for technical writers. Writers never create or modify files at the wiki
-root or under `wiki/notes/`.
+root.
 
 ```
-# Single-repo example — the one repo is STILL nested under technical/
+# Single-repo example — the one repo is STILL nested under TECHNICAL/
 wiki/
 ├── index.md                  ← HAND-WRITTEN. Out of scope for writers.
 │
-├── library/                ← AUTO-GEN. Writers produce content here.
-│   ├── index.md              ← library overview (links the enabled tracks)
-│   │
-│   ├── ai/                   ← AI track (the default; this specialist does not write it)
-│   │   └── ...
-│   │
-│   ├── technical/            ← technical track (this specialist's output)
-│   │   ├── index.md          ← technical track overview
-│   │   └── app/              ← the single repo — ALWAYS nested under technical/
-│   │       ├── index.md
-│   │       ├── architecture.md   ← system design, key decisions
-│   │       ├── auth/
-│   │       │   ├── index.md
-│   │       │   └── jwt-flow.md
-│   │       ├── data-layer/
-│   │       │   ├── index.md
-│   │       │   └── models/
-│   │       │       ├── user.md
-│   │       │       └── order.md
-│   │       └── api/
-│   │           ├── index.md
-│   │           └── endpoints/
-│   │               └── ...
-│   │
-│   └── product/              ← product track (if the project has a product surface)
-│       └── index.md
+├── AI/                       ← AI track (the default; this specialist does not write it)
+│   └── ...
 │
-└── notes/                  ← HAND-WRITTEN. Out of scope for writers.
+├── TECHNICAL/                ← technical track (this specialist's output)
+│   ├── index.md              ← technical track overview
+│   └── app/                  ← the single repo — ALWAYS nested under TECHNICAL/
+│       ├── index.md
+│       ├── architecture.md   ← system design, key decisions
+│       ├── auth/
+│       │   ├── index.md
+│       │   └── jwt-flow.md
+│       ├── data-layer/
+│       │   ├── index.md
+│       │   └── models/
+│       │       ├── user.md
+│       │       └── order.md
+│       └── api/
+│           ├── index.md
+│           └── endpoints/
+│               └── ...
+│
+└── PRODUCT/                  ← product track (if the project has a product surface)
+    └── index.md
 
 # Multi-repo or monorepo example
 wiki/
 ├── index.md                  ← HAND-WRITTEN. Out of scope.
 │
-├── library/                ← AUTO-GEN. Writers produce content here.
-│   ├── index.md              ← library overview, links the enabled tracks
+├── AI/                       ← AI track (the default; not this specialist's output)
+│   └── ...
+│
+├── TECHNICAL/                ← technical track — one folder per repo
+│   ├── index.md              ← technical overview, links to repos + cross-repo pages
+│   ├── architecture.md       ← how repos connect, shared contracts, data flow
+│   ├── deployment.md         ← deployment topology, CI/CD, environment config
 │   │
-│   ├── ai/                   ← AI track (the default; not this specialist's output)
+│   ├── api/                  ← self-contained API documentation
+│   │   ├── index.md          ← API tech stack, structure, entry points
+│   │   ├── architecture.md   ← internal layering (routes → controllers → services)
+│   │   ├── auth/
+│   │   │   ├── index.md
+│   │   │   └── jwt.md
+│   │   ├── models/
+│   │   │   ├── index.md
+│   │   │   ├── user.md
+│   │   │   └── order.md
 │   │   └── ...
 │   │
-│   ├── technical/            ← technical track — one folder per repo
-│   │   ├── index.md          ← technical overview, links to repos + cross-repo pages
-│   │   ├── architecture.md   ← how repos connect, shared contracts, data flow
-│   │   ├── deployment.md     ← deployment topology, CI/CD, environment config
-│   │   │
-│   │   ├── api/              ← self-contained API documentation
-│   │   │   ├── index.md      ← API tech stack, structure, entry points
-│   │   │   ├── architecture.md   ← internal layering (routes → controllers → services)
-│   │   │   ├── auth/
-│   │   │   │   ├── index.md
-│   │   │   │   └── jwt.md
-│   │   │   ├── models/
-│   │   │   │   ├── index.md
-│   │   │   │   ├── user.md
-│   │   │   │   └── order.md
+│   ├── client/               ← self-contained client documentation
+│   │   ├── index.md          ← client tech stack, structure, entry points
+│   │   ├── routing.md
+│   │   ├── auth/
+│   │   │   ├── index.md
+│   │   │   └── session-flow.md
+│   │   ├── components/
 │   │   │   └── ...
-│   │   │
-│   │   ├── client/           ← self-contained client documentation
-│   │   │   ├── index.md      ← client tech stack, structure, entry points
-│   │   │   ├── routing.md
-│   │   │   ├── auth/
-│   │   │   │   ├── index.md
-│   │   │   │   └── session-flow.md
-│   │   │   ├── components/
-│   │   │   │   └── ...
-│   │   │   └── ...
-│   │   │
-│   │   └── shared/           ← only if shared packages exist
-│   │       └── ...
+│   │   └── ...
 │   │
-│   └── product/              ← product track
+│   └── shared/               ← only if shared packages exist
 │       └── ...
 │
-└── notes/                  ← HAND-WRITTEN. Out of scope.
+└── PRODUCT/                  ← product track
+    └── ...
 ```
 
 Each repo folder is a **complete, self-contained documentation tree**. A developer
-working only in the API should be able to navigate `wiki/library/technical/api/`
-without needing to read `wiki/library/technical/client/` and vice versa.
+working only in the API should be able to navigate `wiki/TECHNICAL/api/`
+without needing to read `wiki/TECHNICAL/client/` and vice versa.
 Cross-references between repo folders are required wherever counterpart pages exist
 (linking to relevant pages in sibling repo and product sections), but each repo's
 docs must stand on their own.
 
-Cross-repo pages inside `wiki/library/technical/` (not nested in any repo folder)
+Cross-repo pages inside `wiki/TECHNICAL/` (not nested in any repo folder)
 document things that span repos: the end-to-end auth flow, the API contract between
 frontend and backend, the deployment topology, the system architecture diagram.
 These pages link into both repo folders but do not duplicate their content.
 
-### wiki/library/technical/index.md
+### wiki/TECHNICAL/index.md
 
 The technical track index is the entry into the repo-scoped documentation. It must
 contain:
@@ -305,13 +294,11 @@ contain:
 - One-paragraph product description
 - System architecture summary (how repos/packages relate to each other)
 - Links to every repo folder and cross-cutting document under
-  `wiki/library/technical/`
+  `wiki/TECHNICAL/`
 - Quick reference table (build, run, test commands per repo)
 
-The library overview (`wiki/library/index.md`, which links the technical and
-product tracks) and the wiki **root** index (`wiki/index.md`) are separate,
-out of scope for technical writers (the root is hand-written; the library
-overview is produced once per the plan).
+The wiki **root** index (`wiki/index.md`) is separate and out of scope for
+technical writers — it is the hand-written table of contents.
 
 ---
 
@@ -446,6 +433,11 @@ do not modify sibling pages from your own dispatch.
 
 ## PAGE STRUCTURE
 
+Every page's **first line** is the generated-header, verbatim (before the H1):
+```
+> _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._
+```
+
 Each documentation page should include the following sections. Purpose is
 mandatory; other sections should be included where applicable — omit sections
 that would be empty or forced.
@@ -556,9 +548,13 @@ claim was checked for conditional branches. See VERIFICATION RULES above.
 
 ## CONSTRAINTS
 
-- Writers produce files **only under `wiki/library/`**. Never create or modify
-  files at the wiki root (`wiki/index.md`) or under
-  `wiki/notes/`. Those are hand-written and out of scope.
+- Writers produce files **only under an enabled track folder** (`wiki/TECHNICAL/`
+  for this specialist). Never create or modify files at the wiki root
+  (`wiki/index.md`) — it is hand-written and out of scope.
+- Every generated page's **first line** is the generated-header, verbatim:
+  ```
+  > _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._
+  ```
 - Writers must preserve content between `<!-- AUTOREGEN_SKIP_BEGIN -->` and
   `<!-- AUTOREGEN_SKIP_END -->` markers verbatim. Treat content inside the
   markers as authoritative; do not rewrite, summarize, or expand it.
