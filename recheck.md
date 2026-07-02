@@ -14,13 +14,13 @@ re-invent the rules.
 
 ## TWO ROOTS
 
-This skill operates with two unrelated roots — same as `init.md` § TWO ROOTS. **Skill files** (this `recheck.md`, `init.md`, `specialists/`, `spec/`) are referenced by paths relative to this prompt file. **Project files** (`wiki/`, `wiki/.internal/plan.yaml`, target repos, source code) are relative to the user's current working directory. Never confuse them.
+This skill operates with two unrelated roots — same as `init.md` § TWO ROOTS. **Skill files** (this `recheck.md`, `init.md`, `specialists/`, `spec/`) are referenced by paths relative to this prompt file. **Project files** (`wiki/`, `wiki/.internal/plan.yaml`, the sibling code repos, source code) are relative to CWD (the **workspace**); `wiki/` means the resolved `wiki-{project}/` docs folder (SKILL.md § Pre-flight resolves it). Never confuse them.
 
 ---
 
 ## CONFIGURATION
 
-This prompt inherits target-repo and product-description discovery from `init.md` § CONFIGURATION. Read it before starting. Recheck does not re-discover repos from scratch — it trusts the existing `wiki/.internal/plan.yaml`'s `meta.repos` list. If that list is missing or inaccurate, halt and re-run `init.md` instead.
+This prompt inherits target-repo and product-description discovery from `init.md` § CONFIGURATION. Read it before starting. Recheck does not re-discover repos from scratch — it trusts the existing `wiki/.internal/plan.yaml`'s `meta.repos` list. If that list is missing, halt and re-run `init.md`. A repo from `meta.repos` being **absent from the workspace is not an error** — it is handled as partial access (Phase R1 step 5).
 
 The only recheck-specific knobs:
 
@@ -82,7 +82,7 @@ Sequential and fast. No sub-agents.
    change in the decision log.
 2. **Validate the plan against `spec/plan-schema.md` § INVARIANTS.** Any
    violation halts the recheck — fix the plan or run `init.md` to regenerate.
-3. **Walk `wiki/library/`.** For every page in the plan, confirm the file
+3. **Walk the enabled tracks under `wiki/`** (`wiki/AI`, `wiki/TECHNICAL`, `wiki/PRODUCT` — only those the plan enables). For every page in the plan, confirm the file
    exists on disk and is not still a `*TODO*` stub. Pages that are still stubs
    are recorded as "incomplete from prior run" and flow into Phase R3 with an
    automatic `fail_hard` verdict (no verifier dispatch needed — there's nothing
@@ -93,6 +93,20 @@ Sequential and fast. No sub-agents.
    aborted prior run) get priority in Phase R3. Entries with terminal
    statuses (`regenerated`, `patched`, `shrunken`, `accepted`, `deleted`,
    `fail_hard_post_user`) require no action — they are audit history.
+5. **Resolve repo availability (partial access).** For each repo in `meta.repos`,
+   check whether its folder is present in the workspace (matched by folder name).
+   Split into **present** and **absent** sets. A page is *backed by* a repo if any of
+   its `scope_files` live under that repo's folder.
+   - **Absent repos are skipped, not failed.** Pages backed *only* by absent repos are
+     excluded from Phase R2 enumeration and Phase R3 verification this run — left
+     exactly as committed, with the existing wiki treated as the **source of truth**
+     for them: no coverage gap, no drift flag, no `fail_hard`, no deletion.
+   - A page backed by a mix of present and absent repos is verified normally against
+     the parts it can see; never flag absent-repo material as drift.
+   - If any repo is absent, **report it at the start and end of the run** — e.g.
+     "Skipped 2 repos not in this workspace (repo-x, repo-y); their pages were left
+     unchanged and treated as source of truth — clone them and re-run to refresh."
+     Never delete or `fail_hard` a page merely because its source repo is absent.
 
 ---
 
@@ -109,9 +123,10 @@ maps to a page in the plan.
 
 ### R2.1 Enumerate documentable surface
 
-Enumerate the documentable surface per repo in `meta.repos`. **Dispatch one
-enumeration sub-agent per repo, in parallel** (same pattern and concurrency cap
-as `init.md` Phase 1's per-repo scan) — each reads its repo's `CLAUDE.md` first
+Enumerate the documentable surface per **present** repo (Phase R1 step 5 — repos
+absent from the workspace are skipped, their pages kept as source of truth).
+**Dispatch one enumeration sub-agent per present repo, in parallel** (same pattern
+and concurrency cap as `init.md` Phase 1's per-repo scan) — each reads its repo's `CLAUDE.md` first
 (the source of truth for what counts as a unit of documentation there) and
 returns that repo's surface list. This runs the repos concurrently and keeps raw
 source out of the orchestrator's context.
@@ -225,7 +240,15 @@ For each verifier dispatch, set:
 
 Use the worker pool sizes from `init.md` § SCALING RULES (max 10
 concurrent). Pages flagged as "incomplete stub" in Phase R1 skip verifier
-dispatch and go straight to Phase R4 with a synthetic `fail_hard` verdict.
+dispatch and go straight to Phase R4 with a synthetic `fail_hard` verdict. Pages
+backed **only** by repos absent from the workspace (Phase R1 step 5) are excluded
+from the verify set entirely — not dispatched, left as committed.
+
+Because the verifier is invoked unchanged from `specialists/verifier.md`, it
+inherits that prompt's header-ignore rule: the line-1 generated-header (like an
+`AUTOREGEN_SKIP` block) is not a claim, is not counted in `total_claims`, and is
+never flagged as unanchored. So the header that R4 writers and R5.2 emit does not
+churn or fail re-verification.
 
 ### R3.2 Collect verdicts
 
@@ -270,6 +293,13 @@ verifier, flow into R4.3.
 Use the writer brief template in `init.md` § SUB-AGENT DELEGATION
 PRINCIPLES. For `fail_soft` re-dispatches, attach the verifier's `issues` list
 per the auto-fix re-dispatch protocol in `init.md` Phase 3d.
+
+Every regenerated page keeps the generated-header as its first line (writers emit
+it unchanged per their specialist prompts):
+
+```
+> _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._
+```
 
 **Carry forward prior failures (lightweight cross-run memory).** Whenever
 a writer is dispatched against a page that has a prior `fail_hard` entry
@@ -359,7 +389,16 @@ catching.
 ### R5.2 Refresh root artifacts
 
 Regenerate `wiki/index.md` from the now-current
-reference tree per `init.md` Phase 3e. Hand-edit zones survive.
+reference tree per `init.md` Phase 3e. It is the human table of contents and
+lists only the enabled tracks (`wiki/AI`, `wiki/TECHNICAL`, `wiki/PRODUCT` — those
+present on disk; never assume a track exists). Its first line is the
+generated-header, verbatim:
+
+```
+> _Generated by wiki-system from source — do not edit here. Run `/wiki-system recheck` to refresh; put durable hand-written notes in an `AUTOREGEN_SKIP` block._
+```
+
+Hand-edit zones survive.
 Skip this step entirely if the recheck made zero structural changes
 (no new pages, no extended scope, no successful regens) — there is
 nothing new to surface at the root.
@@ -396,8 +435,6 @@ Run these before reporting the run as complete. Subset of `init.md`
       current report fails this gate; do not report the run complete. A
       stale-claim grep sweep does NOT satisfy this gate. This is the gate that
       stops surgical edits from silently leaving sibling pages contradictory.
-- [ ] **Notes folder untouched.** No file under `wiki/notes/` was created,
-      modified, or deleted.
 - [ ] **Failures triaged.** Every `fail_hard` verdict from this run has a
       user-recorded resolution (`regen_with_context` / `patch_scope` /
       `scope_shrink_stub` / `accept_with_banner` / `delete_page` / `defer`)
@@ -427,8 +464,11 @@ Run these before reporting the run as complete. Subset of `init.md`
 - Auto-fix retry cap is **one**. Multiple retries are forbidden.
 - Phase R2 requires human checkpoint before patching the plan. Auto-decided
   expansion is forbidden.
-- Files outside `wiki/library/` are out of scope. The recheck never writes
-  to `wiki/notes/` or to the wiki root except as Phase R5 specifies.
+- Files outside the enabled tracks under `wiki/` are out of scope. The recheck
+  never writes to the wiki root except as Phase R5 specifies.
+- **Partial access:** a repo from `meta.repos` absent from the workspace is skipped,
+  not failed. Pages backed only by absent repos are never verified, modified, flagged,
+  or deleted this run — the committed wiki is their source of truth. Report skipped repos.
 - If the existing plan is invalid against `spec/plan-schema.md`, halt. This
   prompt cannot fix structural plan errors — that requires `init.md`.
 - If the user halts at the Phase R2 checkpoint without responding, the run
