@@ -9,7 +9,7 @@ This README explains how the system works and why it's built this way. `SKILL.md
 ## What it solves
 
 - **Docs drift from code.** Hand-written docs go stale; auto-generated docs (Swagger, JSDoc) only cover API shape, not behavior, integration, or gotchas. This system writes natural-language docs from source and re-verifies them against source on every recheck.
-- **Different readers need different docs.** AI agents want self-contained, source-anchored invariants/contracts/runbooks loaded on demand; engineers want file paths and function names; product people want flows and rules in plain language. The pipeline produces up to three tracks — `AI` (always on), `PRODUCT` (on when the project has a product surface), and opt-in `TECHNICAL` — from the same source, with the same accuracy guarantee.
+- **Different readers need different docs.** AI agents want self-contained, source-anchored invariants/contracts/runbooks loaded on demand; engineers want file paths and function names; product people want flows and rules in plain language. The pipeline produces up to three tracks — `AI` (always on), plus opt-in `PRODUCT` and `TECHNICAL` — from the same source, with the same accuracy guarantee.
 
 It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Durable hand-written narrative — plans, RFCs, research — lives in Notion, outside the pipeline.
 

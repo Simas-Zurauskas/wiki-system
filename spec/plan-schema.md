@@ -29,9 +29,9 @@ file wins. Update this file first, then update references.
 meta:
   product_description: "<one paragraph — from Configuration or inferred>"
   state: bootstrap | growth | maintenance
-  tracks: [ai, product]       # enabled tracks, a non-empty subset of {ai, technical, product}.
-                              # DEFAULT [ai, product] (ai and product are on by default; technical
-                              # is opt-in). The orchestrator only plans sections/pages whose
+  tracks: [ai]                # enabled tracks, a non-empty subset of {ai, technical, product}.
+                              # DEFAULT [ai] (ai is always on; product and technical
+                              # are opt-in). The orchestrator only plans sections/pages whose
                               # owner_agent is in this list; a disabled track costs nothing.
                               # See ../init.md § Documentation Tracks for the selection flow + defaults.
   wiki_dir: wiki-<project>    # docs folder name (its own git repo, unique per project, e.g. wiki-acme).
@@ -52,7 +52,8 @@ meta:
                          #      per repo, never directly under wiki/TECHNICAL/.
                          # 1.3: third track `ai` (wiki/AI/) added — agent-optimized,
                          #      code-grounded, default-ON; owner_agent gains the value `ai`;
-                         #      meta.tracks records which tracks are enabled (default [ai, product]).
+                         #      meta.tracks records which tracks are enabled (default then
+                         #      [ai, product]; the default is now [ai] — see `tracks` above).
                          # 1.4: workspace model — meta.wiki_dir records the per-project docs folder
                          #      name (wiki-<project>); `wiki/` in paths is the logical docs root
                          #      resolved to wiki_dir; repos matched by folder name; an absent repo
@@ -60,11 +61,11 @@ meta:
 
 # Sections correspond to folders under wiki/<TRACK>/, where <TRACK> is one of the
 # uppercase literals AI, TECHNICAL, PRODUCT. There are up to THREE tracks:
-#   - ai        (wiki/AI/)              — agent-optimized, DEFAULT ON; one `ai` section
+#   - ai        (wiki/AI/)              — agent-optimized, ALWAYS ON; one `ai` section
 #                                          (parent null); see ../specialists/ai.md.
-#   - technical (wiki/TECHNICAL/<repo>/) — repo-scoped developer reference; ALWAYS nested
-#                                          one folder per repo, even for a single repo.
-#   - product   (wiki/PRODUCT/)          — feature-scoped, code-free.
+#   - technical (wiki/TECHNICAL/<repo>/) — repo-scoped developer reference (opt-in); ALWAYS
+#                                          nested one folder per repo, even for a single repo.
+#   - product   (wiki/PRODUCT/)          — feature-scoped, code-free (opt-in).
 # Only tracks listed in meta.tracks are planned. The orchestrator never plans content at
 # the wiki root — those are hand-written.
 # A section with has_overview: true produces an index.md at that folder.

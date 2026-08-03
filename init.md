@@ -44,21 +44,21 @@ The wiki has up to **three** writer tracks (see `specialists/ai.md`, `specialist
 - **technical** — repo-scoped reference under `wiki/TECHNICAL/<repo>/`. Audience: developers. Code references allowed. The technical track **always** nests repos under `wiki/TECHNICAL/` — even a single-repo project produces `wiki/TECHNICAL/<repo>/`, never a repo folder directly under `wiki/`.
 - **product** — feature-scoped reference under `wiki/PRODUCT/`. Audience: PMs, leadership, new joiners. Zero code references — plain language only.
 
-**`ai` is ALWAYS ON (cannot be disabled). `product` is ON when the project has a product surface; `technical` is OFF (opt-in).** Auto-suggest adjustments from project shape, then confirm — never choose silently:
+**`ai` is ALWAYS ON (cannot be disabled). `product` and `technical` are OFF (opt-in).** Auto-suggest adjustments from project shape, then confirm — never choose silently:
 
 | Signal from the Phase-1 scan | Suggested adjustment |
 | --- | --- |
-| Code repo(s) present and a developer audience will browse docs | add `technical` |
-| Library / CLI / infra repo with **no** end-user product surface | consider dropping `product` (keep `ai`; maybe add `technical`) — then `notion sync` has nothing to publish, and that's fine |
-| A user-facing app / clear product feature surface | keep `product` (already on by default) |
+| Code repo(s) present and a developer audience will browse docs | suggest adding `technical` |
+| Library / CLI / infra repo with **no** end-user product surface | keep the `ai`-only default — then `notion sync` has nothing to publish, and that's fine |
+| A user-facing app / clear product feature surface | suggest adding `product` |
 
-**Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named — and do NOT promote a heavier set just because the project's `CLAUDE.md` or existing docs happen to reference all three track index pages. An existing reference is not a request: the `ai + product` default stands until the user explicitly opts into more.
+**Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named — and do NOT promote a heavier set just because the project's `CLAUDE.md` or existing docs happen to reference all three track index pages. An existing reference is not a request: the `ai`-only default stands until the user explicitly opts into more.
 
-Before finalizing the plan, ask the user explicitly, with **`ai + product` as the recommended default, presented first / on top** — whether you ask as a single pre-filled confirm or as a multiple-choice list. **Never lead with or pre-recommend a heavier set** (`+ technical`, or all three); offer those *below* the default as opt-in adjustments. `ai` is always present (it cannot be disabled); the recommended option is always `ai + product`:
+Before finalizing the plan, ask the user explicitly, with **`ai` alone as the recommended default, presented first / on top** — whether you ask as a single pre-filled confirm or as a multiple-choice list. **Never lead with or pre-recommend a heavier set** (`+ product`, `+ technical`, or all three); offer those *below* the default as opt-in adjustments. `ai` is always present (it cannot be disabled); the recommended option is always `ai` alone:
 
-> I'll generate the **ai** (agent-optimized) and **product** (plain-language) tracks by default *(recommended)*. You can add **technical** (developer reference) [suggest only if the scan signalled it], or drop **product** if there's no end-user product surface. Confirm the track set, or adjust. (Recommended: ai + product.)
+> I'll generate the **ai** (agent-optimized) track by default *(recommended)*. You can add **product** (plain-language) [suggest only if the scan signalled a product surface] or **technical** (developer reference) [suggest only if the scan signalled it]. Confirm the track set, or adjust. (Recommended: ai.)
 
-Record the chosen set in `wiki/.internal/plan.yaml`'s `meta.tracks` (e.g. `meta.tracks: [ai, product]` or `[ai, technical, product]`) before drafting the rest of the plan. `ai` is ALWAYS in the set — cannot be removed. Only plan `sections`/`pages` whose `owner_agent` is an enabled track; a disabled track produces no folder, no pages, and no verifier dispatches. Never enable or skip a track silently.
+Record the chosen set in `wiki/.internal/plan.yaml`'s `meta.tracks` (e.g. `meta.tracks: [ai]` or `[ai, technical, product]`) before drafting the rest of the plan. `ai` is ALWAYS in the set — cannot be removed. Only plan `sections`/`pages` whose `owner_agent` is an enabled track; a disabled track produces no folder, no pages, and no verifier dispatches. Never enable or skip a track silently.
 
 ### Output Directory
 

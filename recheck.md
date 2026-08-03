@@ -4,7 +4,7 @@ gaps, and correct drift — without re-planning or re-writing the wiki from scra
 This prompt is a **recheck orchestrator**. It composes the same writer and
 verifier sub-agent contracts defined by `init.md`, `specialists/ai.md`,
 `specialists/technical.md`, `specialists/product.md`, and `specialists/verifier.md`. It
-does NOT redefine those contracts. It respects the enabled `meta.tracks` (default `[ai, product]`):
+does NOT redefine those contracts. It respects the enabled `meta.tracks` (default `[ai]`):
 it only verifies/regenerates pages for enabled tracks, and maps each page's `owner_agent`
 to its verifier mode (`ai`/`technical`/`product`) per `init.md` Phase 3d.
 Where this prompt links out, follow the linked spec exactly — do not
