@@ -29,8 +29,8 @@ file wins. Update this file first, then update references.
 meta:
   product_description: "<one paragraph — from Configuration or inferred>"
   state: bootstrap | growth | maintenance
-  tracks: [ai]                # enabled tracks, a non-empty subset of {ai, technical, product}.
-                              # DEFAULT [ai] (ai is always on; product and technical
+  tracks: [agents]                # enabled tracks, a non-empty subset of {agents, technical, product}.
+                              # DEFAULT [agents] (agents is always on; product and technical
                               # are opt-in). The orchestrator only plans sections/pages whose
                               # owner_agent is in this list; a disabled track costs nothing.
                               # See ../init.md § Documentation Tracks for the selection flow + defaults.
@@ -44,8 +44,9 @@ meta:
     - name: <folder name>     # the repo's folder name in the workspace (clone under this name)
       path: <workspace-relative folder>   # normally the same as name
       git_url: <remote URL>   # OPTIONAL — `git remote get-url origin` at scan time; omit or
-                              # null if the repo has no remote. Feeds the repo manifest in
-                              # wiki/AI/index.md § Repositories (../init.md Phase 3e step 2).
+                              # null if the repo has no remote. Feeds the § Repositories manifest
+                              # in each code-anchored track index — wiki/AGENTS/index.md, and
+                              # wiki/TECHNICAL/index.md when enabled (../init.md Phase 3e step 2).
       default_branch: <name>  # OPTIONAL — the remote's default branch (e.g. main/master);
                               # omit or null when unknown or no remote.
   generated_at: <ISO-8601 date>
@@ -55,23 +56,30 @@ meta:
                          # 1.2: folder index file renamed OVERVIEW.md -> index.md; the technical
                          #      track is always nested under wiki/TECHNICAL/<repo>/, one folder
                          #      per repo, never directly under wiki/TECHNICAL/.
-                         # 1.3: third track `ai` (wiki/AI/) added — agent-optimized,
-                         #      code-grounded, default-ON; owner_agent gains the value `ai`;
+                         # 1.3: third track added (then named `ai`, folder wiki/AI/ — renamed to
+                         #      `agents` in 1.5) — agent-optimized, code-grounded, default-ON;
+                         #      owner_agent gains the new track's value;
                          #      meta.tracks records which tracks are enabled (default then
-                         #      [ai, product]; the default is now [ai] — see `tracks` above).
+                         #      [ai, product]; the default is now [agents] — see `tracks` above).
                          # 1.4: workspace model — meta.wiki_dir records the per-project docs folder
                          #      name (wiki-<project>); `wiki/` in paths is the logical docs root
                          #      resolved to wiki_dir; repos matched by folder name; an absent repo
                          #      is partial access (recheck R1 step 5), not an error.
-                         # 1.5: repos[] gains OPTIONAL git_url + default_branch (remote provenance
-                         #      for the orchestrator-owned repo manifest in wiki/AI/index.md
-                         #      § Repositories). Non-breaking: plans without them stay valid;
-                         #      recheck backfills for present repos (recheck R1 step 5).
+                         # 1.5: (a) repos[] gains OPTIONAL git_url + default_branch (remote
+                         #      provenance for the orchestrator-owned § Repositories manifest
+                         #      written into every code-anchored track index: wiki/AGENTS/index.md,
+                         #      and wiki/TECHNICAL/index.md when enabled — never PRODUCT); recheck
+                         #      backfills them for present repos (recheck R1 step 5).
+                         #      (b) track `ai` RENAMED to `agents` (folder wiki/AI/ ->
+                         #      wiki/AGENTS/; specialist specialists/ai.md -> agents.md). BREAKING:
+                         #      older plans/wikis migrate mechanically — git mv the folder, rewrite
+                         #      plan paths, tracks: [ai] -> [agents], owner_agent: ai -> agents.
+                         #      History notes above may use either name for that track.
 
 # Sections correspond to folders under wiki/<TRACK>/, where <TRACK> is one of the
-# uppercase literals AI, TECHNICAL, PRODUCT. There are up to THREE tracks:
-#   - ai        (wiki/AI/)              — agent-optimized, ALWAYS ON; one `ai` section
-#                                          (parent null); see ../specialists/ai.md.
+# uppercase literals AGENTS, TECHNICAL, PRODUCT. There are up to THREE tracks:
+#   - agents   (wiki/AGENTS/)              — agent-optimized, ALWAYS ON; one `agents` section
+#                                          (parent null); see ../specialists/agents.md.
 #   - technical (wiki/TECHNICAL/<repo>/) — repo-scoped developer reference (opt-in); ALWAYS
 #                                          nested one folder per repo, even for a single repo.
 #   - product   (wiki/PRODUCT/)          — feature-scoped, code-free (opt-in).
@@ -80,10 +88,10 @@ meta:
 # A section with has_overview: true produces an index.md at that folder.
 # Nesting is arbitrary depth — use it. The scope-to-depth table below forces it.
 sections:
-  - id: <stable slug, e.g. technical/api/models or ai/contracts>
+  - id: <stable slug, e.g. technical/api/models or agents/contracts>
     path: wiki/<TRACK>/<slug>/
     parent: <parent section id, or null for top-level>
-    owner_agent: technical | product | ai
+    owner_agent: technical | product | agents
     has_overview: true | false
     scope_loc_estimate: <integer — sum of source LOC this section documents>
     split_reason: "<why this section is a folder rather than a single page>"  # optional
@@ -96,7 +104,7 @@ pages:
   - id: <stable slug, e.g. technical/api/models/user>
     path: wiki/<TRACK>/<slug>.md
     section: <section id this page belongs to>
-    owner_agent: technical | product | ai
+    owner_agent: technical | product | agents
     scope_files: [<glob or file paths relative to project root>]
     scope_loc_estimate: <integer>
     complexity: S | M | L | XL
@@ -125,13 +133,13 @@ Field order is free. Every listed field is required unless marked optional.
 - **id** — stable slug; used as the key when agents reference the section.
   Must match the path structure: `technical/api/models` → `wiki/TECHNICAL/api/models/`.
 - **parent** — the section id one level up. `null` for a top-level track
-  section. The track sections `ai`, `technical`, and `product` have
+  section. The track sections `agents`, `technical`, and `product` have
   `parent: null`; each repo section (e.g. `api`) has `parent: technical`.
 - **owner_agent** — which specialist writes this section, and which verifier
   `mode` checks it. `technical` → repo-scoped developer docs (`../specialists/technical.md`);
   `product` → feature-scoped, code-free docs (`../specialists/product.md`);
-  `ai` → agent-optimized, code-grounded docs under `wiki/AI/`
-  (`../specialists/ai.md`). The value must be one of the enabled `meta.tracks`.
+  `agents` → agent-optimized, code-grounded docs under `wiki/AGENTS/`
+  (`../specialists/agents.md`). The value must be one of the enabled `meta.tracks`.
 - **has_overview** — `true` means the section is a folder with an
   `index.md`. `false` means the section is a single leaf page (in which
   case `path` should end in `.md`, not `/`).
@@ -206,11 +214,11 @@ The orchestrator applies this table before finalizing `sections` and
 `pages`. Writers apply it recursively when evaluating whether to return a
 `split_request`. Verifiers reference it when judging whether the plan was
 correctly shaped. This table is authoritative for technical docs and for the
-`ai` track's `reference/`, `contracts/`, `runbooks/`, and `map/` folders; the
+`agents` track's `reference/`, `contracts/`, `runbooks/`, and `map/` folders; the
 product specialist uses a feature-based variant (see `../specialists/product.md`).
-The `ai` track has a fixed top-level shape (`index`, `invariants`, `glossary`,
+The `agents` track has a fixed top-level shape (`index`, `invariants`, `glossary`,
 `contracts/`, `runbooks/`, `map/`, `reference/`) regardless of size — see
-`../specialists/ai.md` — and applies this table only to size those folders.
+`../specialists/agents.md` — and applies this table only to size those folders.
 
 | Source scope                              | Required structure                                                                 |
 | ----------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -233,7 +241,7 @@ Each verifier sub-agent writes a YAML report to
 ```yaml
 page_id: <stable slug — same id as in wiki/.internal/plan.yaml pages[]>
 page_path: wiki/<TRACK>/<slug>.md
-mode: technical | product | ai
+mode: technical | product | agents
 verified_at: <ISO-8601 timestamp>
 verdict: pass | fail_soft | fail_hard
 
@@ -456,8 +464,8 @@ A valid `wiki/.internal/plan.yaml` must satisfy all of:
 
 1. Every `sections[].path` starts with `wiki/<TRACK>/`, and every
    `pages[].path` starts with `wiki/<TRACK>/` and ends with `.md`, where
-   `<TRACK>` is one of `{AI, TECHNICAL, PRODUCT}`. The folder names are
-   literally uppercase — `AI`, `TECHNICAL`, `PRODUCT`, never lowercase (casing
+   `<TRACK>` is one of `{AGENTS, TECHNICAL, PRODUCT}`. The folder names are
+   literally uppercase — `AGENTS`, `TECHNICAL`, `PRODUCT`, never lowercase (casing
    invariant). Technical pages nest as `wiki/TECHNICAL/<repo>/…`. Pages outside
    `wiki/<TRACK>/` are not part of the auto-gen plan and must not appear.
 2. Every page's `section` refers to an existing section id.
@@ -471,12 +479,12 @@ A valid `wiki/.internal/plan.yaml` must satisfy all of:
    `has_overview: true` (per the scope-to-depth table).
 9. For every page with `section_parity: strict`, a counterpart page
    exists in each sibling section where parity is meaningful.
-10. `meta.tracks` is a non-empty subset of `{ai, technical, product}`. Every
+10. `meta.tracks` is a non-empty subset of `{agents, technical, product}`. Every
     `owner_agent` (sections and pages) is one of the enabled `meta.tracks`, and
     every enabled track has at least one section. `scope_loc_estimate` and the
-    scope-to-depth invariant (#8) apply to `technical` and `ai` sections; a
+    scope-to-depth invariant (#8) apply to `technical` and `agents` sections; a
     `product` section is feature-sized, not LOC-sized, and is exempt from #8.
-11. `meta.schema_version` matches the version this file documents (`1.4`).
+11. `meta.schema_version` matches the version this file documents (`1.5`).
 
 The orchestrator validates these in Phase 2 before writing the plan and
 in Quality Gates at the end of Phase 3e.

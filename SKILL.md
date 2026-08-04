@@ -31,7 +31,7 @@ Before picking a mode, establish the workspace and resolve the docs root.
    - **None found** → no wiki has been built yet. Only `init` proceeds (it creates `wiki-{project}/` — see `init.md`); any other command halts and suggests `init`.
    - **Several found** → ask the user which project this run is for.
 
-   **Throughout this skill and its sub-prompts, `wiki/` is shorthand for the resolved `<WIKI>/` folder** — e.g. `wiki/.internal/plan.yaml` means `<WIKI>/.internal/plan.yaml`, `wiki/AI` means `<WIKI>/AI`. The skill writes docs only inside `<WIKI>/`, never at the workspace root and never inside a code repo.
+   **Throughout this skill and its sub-prompts, `wiki/` is shorthand for the resolved `<WIKI>/` folder** — e.g. `wiki/.internal/plan.yaml` means `<WIKI>/.internal/plan.yaml`, `wiki/AGENTS` means `<WIKI>/AGENTS`. The skill writes docs only inside `<WIKI>/`, never at the workspace root and never inside a code repo.
 
 3. Note whether `<WIKI>/.internal/plan.yaml` exists — this drives the mode choice below.
 
@@ -41,12 +41,12 @@ Four commands. **`init`/`recheck`/`claude` write local artifacts (`wiki/` and `C
 
 | Command | Reads | What it does (exactly) | When to use |
 | --- | --- | --- | --- |
-| `/wiki-system init` | `init.md` | **Bootstrap the local wiki from scratch.** Scans every target repo (parallel per-repo sub-agents) → confirms the track set (`AI` always on; `PRODUCT` and `TECHNICAL` opt-in) → writes `plan.yaml` → stubs pages → dispatches writers for the enabled tracks → dispatches verifiers (auto-fix `fail_soft` once) → finalizes `wiki/index.md`. Does **not** write `CLAUDE.md` — it suggests `/wiki-system claude` at the end. | No wiki exists yet, or you want a forced full rebuild after a major architectural change. |
-| `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in `wiki/AI/index.md` — SHAs + dirty flags — refreshes on **every** run). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
-| `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AI`. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
+| `/wiki-system init` | `init.md` | **Bootstrap the local wiki from scratch.** Scans every target repo (parallel per-repo sub-agents) → confirms the track set (`AGENTS` always on; `PRODUCT` and `TECHNICAL` opt-in) → writes `plan.yaml` → stubs pages → dispatches writers for the enabled tracks → dispatches verifiers (auto-fix `fail_soft` once) → finalizes `wiki/index.md`. Does **not** write `CLAUDE.md` — it suggests `/wiki-system claude` at the end. | No wiki exists yet, or you want a forced full rebuild after a major architectural change. |
+| `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in each code-anchored track index — `wiki/AGENTS/index.md`, and `wiki/TECHNICAL/index.md` when enabled; SHAs + dirty flags — refreshes on **every** run). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
+| `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AGENTS`. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
 | `/wiki-system notion sync [<root-url>]` | `notion.md` | **Publish the PRODUCT track to Notion — first time *and* every update (one verb).** With **no mapping**: under your root page, mirrors the `wiki/PRODUCT/` tree in place and writes the `notion-sync.yaml` mapping. With a **mapping**: re-renders and pushes only the PRODUCT pages whose content changed, in place (no duplicates). Trusts local hashes; never reads the Notion side or the code. | To first mirror the PRODUCT track to Notion (pass the root URL), and to push later edits. Needs the **Notion MCP** connected. |
 
-Mental model: **`init` / `recheck`** = create / audit the local wiki. **`claude`** = (re)generate `CLAUDE.md` from the wiki/repo, pointing agents at `wiki/AI`. **`notion sync`** = push the local PRODUCT track → Notion (first publish + updates). The detailed routing for each mode is below.
+Mental model: **`init` / `recheck`** = create / audit the local wiki. **`claude`** = (re)generate `CLAUDE.md` from the wiki/repo, pointing agents at `wiki/AGENTS`. **`notion sync`** = push the local PRODUCT track → Notion (first publish + updates). The detailed routing for each mode is below.
 
 ## Mode selection
 
@@ -63,7 +63,7 @@ What it does:
 - Phase 1: scans target repos
 - Phase 2: plans the wiki structure (writes `wiki/.internal/plan.yaml`)
 - Phase 3: dispatches writer and verifier sub-agents in parallel waves
-- Phase 3e: finalizes `wiki/index.md` and writes the repo manifest (`wiki/AI/index.md` § Repositories — git URL + verified SHA + dirty flag per repo; it does **not** write `CLAUDE.md` — it suggests `/wiki-system claude`)
+- Phase 3e: finalizes `wiki/index.md` and writes the repo manifest (§ Repositories in each code-anchored track index — `wiki/AGENTS/index.md`, and `wiki/TECHNICAL/index.md` when enabled, never PRODUCT — git URL + verified SHA + dirty flag per repo) and the root agent signposts (docs-root `AGENTS.md` + one-line `CLAUDE.md` pointer; it does **not** write the workspace `CLAUDE.md` — it suggests `/wiki-system claude`)
 
 Cost: high — typically 100+ sub-agent dispatches for a mid-sized multi-repo project.
 
@@ -83,7 +83,7 @@ What it does:
 - Phase R2: scans for source code that has no documentation (coverage-gap detection — `init.md` does not provide this)
 - Phase R3: dispatches verifiers against every page in the plan
 - Phase R4: dispatches writers to fix verification failures (one auto-fix retry per page, capped)
-- Phase R5: refreshes root artifacts only if structure changed; the repo manifest in `wiki/AI/index.md` refreshes every run
+- Phase R5: refreshes root artifacts only if structure changed; the repo manifest in each code-anchored track index and the docs-root `AGENTS.md`/`CLAUDE.md` signposts refresh every run
 
 Cost: moderate — ~50 verifier dispatches for a mid-sized project, plus a handful of writer regens for failures.
 
@@ -145,7 +145,7 @@ Trigger signals:
 What it does: synthesizes a lean (≤200-line) `CLAUDE.md` from the cheapest sufficient
 source — the existing `CLAUDE.md`, the wiki (`wiki/index.md` + `plan.yaml`), and repo
 metadata — doing a light structural scan only if no wiki exists. Its Documentation
-section links to `wiki/AI`. It bakes in the **on-request docs policy** (the wiki and
+section links to `wiki/AGENTS`. It bakes in the **on-request docs policy** (the wiki and
 `CLAUDE.md` are refreshed only when explicitly asked, never as a side effect of feature
 work) and confirms before overwriting an existing file.
 
@@ -176,6 +176,6 @@ If the user names a removed command, map it: `notion init`/`notion claude` were 
 - `init.md` — bootstrap orchestrator (read this in Mode 1)
 - `recheck.md` — recheck orchestrator (read this in Mode 2)
 - `notion.md` — Notion publish orchestrator (push the local `wiki/PRODUCT/` track to Notion): `notion sync` (Mode 3)
-- `specialists/ai.md`, `specialists/technical.md`, `specialists/product.md`, `specialists/verifier.md` — sub-agent prompts dispatched by the orchestrators (one writer specialist per track: `AI` always on; `PRODUCT` and `TECHNICAL` opt-in)
+- `specialists/agents.md`, `specialists/technical.md`, `specialists/product.md`, `specialists/verifier.md` — sub-agent prompts dispatched by the orchestrators (one writer specialist per track: `AGENTS` always on; `PRODUCT` and `TECHNICAL` opt-in)
 - `spec/plan-schema.md` — authoritative schema for `wiki/.internal/plan.yaml`
 - `spec/notion-sync-schema.md` — authoritative schema for `wiki/.internal/notion-sync.yaml` (the Notion mapping)

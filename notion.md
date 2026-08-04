@@ -1,7 +1,7 @@
 Your task is to publish the on-disk `wiki/PRODUCT` track to Notion, mirroring
 its structure under a single, human-chosen Notion "Product Wiki" page — and to
 keep that mirror in sync on subsequent runs without creating duplicates. Only
-the PRODUCT track is published; `wiki/AI` and `wiki/TECHNICAL` never go to
+the PRODUCT track is published; `wiki/AGENTS` and `wiki/TECHNICAL` never go to
 Notion. The root page is always chosen by a human, never created automatically.
 
 This prompt is the **Notion publish orchestrator**, invoked as
@@ -111,7 +111,7 @@ This command drives Notion exclusively through the Notion MCP tools
 ordering. The sync works on a hand-built `wiki/PRODUCT/` with no plan present.
 
 **Scope.** This command publishes `wiki/PRODUCT/index.md` (root page body) and
-the `wiki/PRODUCT/` tree. It never touches `wiki/.internal/`, `wiki/AI`, or
+the `wiki/PRODUCT/` tree. It never touches `wiki/.internal/`, `wiki/AGENTS`, or
 `wiki/TECHNICAL`.
 
 ---
@@ -500,7 +500,7 @@ Run before reporting complete:
 - **One-directional.** Disk → Notion only. Never read content from Notion to
   overwrite the source; never edit any file under `wiki/`.
 - **Scope.** Publishes `wiki/PRODUCT/index.md` (root body) and the
-  `wiki/PRODUCT/` tree. Never touches `wiki/.internal/`, `wiki/AI`, or
+  `wiki/PRODUCT/` tree. Never touches `wiki/.internal/`, `wiki/AGENTS`, or
   `wiki/TECHNICAL`.
 - **The root page is human-owned; this command never creates it.** The human
   creates the "Product Wiki" root page and supplies its id; this command only

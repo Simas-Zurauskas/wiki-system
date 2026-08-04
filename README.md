@@ -9,7 +9,7 @@ This README explains how the system works and why it's built this way. `SKILL.md
 ## What it solves
 
 - **Docs drift from code.** Hand-written docs go stale; auto-generated docs (Swagger, JSDoc) only cover API shape, not behavior, integration, or gotchas. This system writes natural-language docs from source and re-verifies them against source on every recheck.
-- **Different readers need different docs.** AI agents want self-contained, source-anchored invariants/contracts/runbooks loaded on demand; engineers want file paths and function names; product people want flows and rules in plain language. The pipeline produces up to three tracks — `AI` (always on), plus opt-in `PRODUCT` and `TECHNICAL` — from the same source, with the same accuracy guarantee.
+- **Different readers need different docs.** AI agents want self-contained, source-anchored invariants/contracts/runbooks loaded on demand; engineers want file paths and function names; product people want flows and rules in plain language. The pipeline produces up to three tracks — `AGENTS` (always on), plus opt-in `PRODUCT` and `TECHNICAL` — from the same source, with the same accuracy guarantee.
 
 It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Durable hand-written narrative — plans, RFCs, research — lives in Notion, outside the pipeline.
 
@@ -37,7 +37,7 @@ wiki/
 │   ├── notion-sync.yaml       ← disk↔Notion mapping (a cache)
 │   └── trace/decisions.md     ← per-run decisions log
 │
-├── AI/                        ← AI track (ALWAYS ON) — agent-optimized, standalone-complete
+├── AGENTS/                        ← agents track (ALWAYS ON) — agent-optimized, standalone-complete
 │   ├── index.md               ← navigable machine index (the agent's front door)
 │   ├── invariants.md  glossary.md
 │   └── contracts/  runbooks/  map/  reference/
@@ -54,7 +54,7 @@ Only enabled tracks exist on disk — routing, publishing, and `wiki/index.md` l
 | Surface | Produced by | Verified? | Mutability |
 | --- | --- | --- | --- |
 | `wiki/index.md` | Orchestrator (finalize) | No | Auto-rewritten; hand-edit zones survive |
-| `wiki/{AI,TECHNICAL,PRODUCT}/**` | AI / technical / product writer | Yes (claim-by-claim) | Auto-rewritten; hand-edit zones survive |
+| `wiki/{AGENTS,TECHNICAL,PRODUCT}/**` | agents / technical / product writer | Yes (claim-by-claim) | Auto-rewritten; hand-edit zones survive |
 | `CLAUDE.md` | `claude` mode only | No | Individual per dev, **not committed**; machine-generated + preserved `AUTOREGEN_SKIP` human zone |
 
 `wiki/index.md` is derived in the finalize phase from the completed reference tree — it is not a writer page and does not appear in `plan.yaml`. `CLAUDE.md` is written **only** by the `claude` mode; `init`/`recheck` just suggest running it. Hand-edit zones (`<!-- AUTOREGEN_SKIP_BEGIN/END -->`) let projects keep hand-written sections through re-runs.
@@ -105,7 +105,7 @@ Four commands. Ground truth for verification is always the **source code**.
 | --- | --- |
 | `/wiki-system init` | Bootstrap the local wiki from scratch: scan → plan → stub → write → verify → finalize. |
 | `/wiki-system recheck` | Audit the local wiki against current code: coverage-gap scan, verify-first, regenerate drift. Does not re-plan. |
-| `/wiki-system claude` | Create/update a lean (≤200-line) `CLAUDE.md` routing agents at `wiki/AI`. The only command that writes it. |
+| `/wiki-system claude` | Create/update a lean (≤200-line) `CLAUDE.md` routing agents at `wiki/AGENTS`. The only command that writes it. |
 | `/wiki-system notion sync [<url>]` | Publish the `PRODUCT` track to Notion, in place — first time *and* every update (one verb). No mapping: create the mirror under the supplied root page + write the mapping. Mapping present: idempotent push of changed pages (no duplicates). Needs the Notion MCP. |
 
 Mental model: `init`/`recheck` create and audit the local wiki; `claude` regenerates `CLAUDE.md`; `notion sync` publishes the `PRODUCT` track to Notion (first publish + updates).
@@ -122,15 +122,15 @@ Each is project-agnostic; per-project configuration lives in `init.md`'s CONFIGU
 | `recheck.md` | Recheck orchestrator: audits the existing wiki against source. |
 | `claude-md.md` | `CLAUDE.md` orchestrator (`claude`). |
 | `notion.md` | Notion publish orchestrator (`notion sync` — push the `PRODUCT` track from an existing local `wiki/`). |
-| `specialists/ai.md` | AI-track writer (always-on track) — agent-optimized, code-grounded: self-contained, atomic source-anchored claims, invariants + contracts + runbooks + flow map + concise per-area reference + a machine index. |
+| `specialists/agents.md` | agents-track writer (always-on track) — agent-optimized, code-grounded: self-contained, atomic source-anchored claims, invariants + contracts + runbooks + flow map + concise per-area reference + a machine index. |
 | `specialists/technical.md` | Technical writer — reference pages with file paths, function names, line citations. |
 | `specialists/product.md` | Product writer — flows and business rules in plain language, zero code references. |
-| `specialists/verifier.md` | Verifier — reads a draft + its scope files, emits a per-claim YAML report. Read-only. Modes: `ai` / `technical` / `product`. |
+| `specialists/verifier.md` | Verifier — reads a draft + its scope files, emits a per-claim YAML report. Read-only. Modes: `agents` / `technical` / `product`. |
 | `spec/plan-schema.md`, `spec/notion-sync-schema.md` | Schema references for the two `.internal` YAML artifacts. |
 
 **Why writer and verifier are split.** A writer self-checking is an unreliable check — its incentive is to ship. A separate verifier prompt confronts the prose with source. The independence is prompt-level, not model-level (usually the same underlying model), so the real safeguard is re-reading the source; the prompt split is a secondary one.
 
-**Why the writer tracks are split.** Audience and vocabulary control. The `ai` track is written for an agent retrieving fragments on demand (self-contained, atomic, source-anchored, task/contract-oriented); technical pages are human narrative that cite `file:line`; product pages may not mention any code identifier. Three specialists with distinct rules produce cleaner, non-overlapping output than one prompt trying to do all three — and overlap is actively harmful (duplicated/near-duplicate content is retrieved as conflicting "distractor" context), so the `ai` track links to the others rather than restating them.
+**Why the writer tracks are split.** Audience and vocabulary control. The `agents` track is written for an agent retrieving fragments on demand (self-contained, atomic, source-anchored, task/contract-oriented); technical pages are human narrative that cite `file:line`; product pages may not mention any code identifier. Three specialists with distinct rules produce cleaner, non-overlapping output than one prompt trying to do all three — and overlap is actively harmful (duplicated/near-duplicate content is retrieved as conflicting "distractor" context), so the `agents` track links to the others rather than restating them.
 
 ---
 
@@ -160,7 +160,7 @@ Honest calibration matters: inflated severity blocks legitimate updates; deflate
 
 ## Notion publishing
 
-Publishing (`notion sync`) is a one-directional push — local `wiki/` is the source of truth, Notion is a render target — driven entirely through the **Notion MCP** (no integration token). Only the `PRODUCT` track is published; `AI` and `TECHNICAL` stay in git. The mirror lives under a single root page:
+Publishing (`notion sync`) is a one-directional push — local `wiki/` is the source of truth, Notion is a render target — driven entirely through the **Notion MCP** (no integration token). Only the `PRODUCT` track is published; `AGENTS` and `TECHNICAL` stay in git. The mirror lives under a single root page:
 
 ```
 [root page]   body = wiki/PRODUCT/index.md
@@ -171,7 +171,7 @@ Publishing (`notion sync`) is a one-directional push — local `wiki/` is the so
 - **Two-pass** so cross-links resolve: pass 1 creates pages to learn their Notion ids; pass 2 rewrites relative markdown links into Notion page links.
 - **Idempotent and resumable** via the mapping in `wiki/.internal/notion-sync.yaml` (root id + `path → Notion id → content hash`). With no source changes, a re-run performs zero writes.
 - **No silent destruction.** A page whose source vanished is surfaced as an orphan for the user to resolve — never auto-archived.
-- It does **not** publish the `AI`/`TECHNICAL` tracks or anything under `wiki/.internal/`.
+- It does **not** publish the `AGENTS`/`TECHNICAL` tracks or anything under `wiki/.internal/`.
 
 ---
 
@@ -214,7 +214,7 @@ The `wiki-{project}/` folder is **its own git repo** (all of it, including `.int
 | `recheck.md` | Recheck orchestrator. |
 | `claude-md.md` | `CLAUDE.md` orchestrator (`claude`). |
 | `notion.md` | Notion publish orchestrator (`notion sync`). |
-| `specialists/ai.md`, `technical.md`, `product.md`, `verifier.md` | Writer (one per track) and verifier sub-agent prompts. |
+| `specialists/agents.md`, `technical.md`, `product.md`, `verifier.md` | Writer (one per track) and verifier sub-agent prompts. |
 | `spec/plan-schema.md` | Schema for `wiki/.internal/plan.yaml`. |
 | `spec/notion-sync-schema.md` | Schema for `wiki/.internal/notion-sync.yaml`. |
 

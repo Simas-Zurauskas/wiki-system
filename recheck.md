@@ -2,11 +2,11 @@ Your task is to re-check an existing wiki against the current source code, surfa
 gaps, and correct drift — without re-planning or re-writing the wiki from scratch.
 
 This prompt is a **recheck orchestrator**. It composes the same writer and
-verifier sub-agent contracts defined by `init.md`, `specialists/ai.md`,
+verifier sub-agent contracts defined by `init.md`, `specialists/agents.md`,
 `specialists/technical.md`, `specialists/product.md`, and `specialists/verifier.md`. It
-does NOT redefine those contracts. It respects the enabled `meta.tracks` (default `[ai]`):
+does NOT redefine those contracts. It respects the enabled `meta.tracks` (default `[agents]`):
 it only verifies/regenerates pages for enabled tracks, and maps each page's `owner_agent`
-to its verifier mode (`ai`/`technical`/`product`) per `init.md` Phase 3d.
+to its verifier mode (`agents`/`technical`/`product`) per `init.md` Phase 3d.
 Where this prompt links out, follow the linked spec exactly — do not
 re-invent the rules.
 
@@ -82,7 +82,7 @@ Sequential and fast. No sub-agents.
    change in the decision log.
 2. **Validate the plan against `spec/plan-schema.md` § INVARIANTS.** Any
    violation halts the recheck — fix the plan or run `init.md` to regenerate.
-3. **Walk the enabled tracks under `wiki/`** (`wiki/AI`, `wiki/TECHNICAL`, `wiki/PRODUCT` — only those the plan enables). For every page in the plan, confirm the file
+3. **Walk the enabled tracks under `wiki/`** (`wiki/AGENTS`, `wiki/TECHNICAL`, `wiki/PRODUCT` — only those the plan enables). For every page in the plan, confirm the file
    exists on disk and is not still a `*TODO*` stub. Pages that are still stubs
    are recorded as "incomplete from prior run" and flow into Phase R3 with an
    automatic `fail_hard` verdict (no verifier dispatch needed — there's nothing
@@ -396,7 +396,7 @@ catching.
 
 Regenerate `wiki/index.md` from the now-current
 reference tree per `init.md` Phase 3e. It is the human table of contents and
-lists only the enabled tracks (`wiki/AI`, `wiki/TECHNICAL`, `wiki/PRODUCT` — those
+lists only the enabled tracks (`wiki/AGENTS`, `wiki/TECHNICAL`, `wiki/PRODUCT` — those
 present on disk; never assume a track exists). Its first line is the
 generated-header, verbatim:
 
@@ -410,8 +410,10 @@ changes (no new pages, no extended scope, no successful regens) — there is
 nothing new to surface at the root.
 
 **The repo manifest is NOT covered by that skip — refresh it on every run.**
-Rewrite the `## Repositories` section of `wiki/AI/index.md` per `init.md`
-Phase 3e step 2: for each **present** repo, record the current
+Rewrite the `## Repositories` section of every enabled code-anchored track
+index (`wiki/AGENTS/index.md`; `wiki/TECHNICAL/index.md` when the technical track
+is enabled — never PRODUCT) per `init.md` Phase 3e step 2: for each **present**
+repo, record the current
 `git -C <repo> rev-parse HEAD` SHA, the dirty flag from
 `git -C <repo> status --porcelain`, `git_url`/`default_branch` from the plan
 (including any R1 backfill), and this run's verification date. An **absent**
@@ -419,6 +421,10 @@ repo keeps its existing manifest entry verbatim, annotated
 "not present this run — last verified <date>". A recheck that verified pages
 against new code but left old SHAs in the manifest would misstate what the
 docs were checked against — this step is why the manifest can be trusted.
+
+Also rewrite the root agent signposts (`wiki/AGENTS.md` + `wiki/CLAUDE.md`)
+per `init.md` Phase 3e step 2 — same every-run cadence, creating them if a
+pre-signpost wiki lacks them.
 
 ### R5.3 Do NOT touch CLAUDE.md
 
@@ -499,7 +505,7 @@ Run these before reporting the run as complete. Subset of `init.md`
 | File | Relationship |
 | --- | --- |
 | `init.md` | Authoritative for CONFIGURATION, sub-agent briefs, scaling rules, quality gates, hand-edit zone protocol. This prompt links to it; do not duplicate. |
-| `specialists/ai.md` | Invoked unchanged in Phase R4 for `ai`-section writers (verifier mode `ai`). |
+| `specialists/agents.md` | Invoked unchanged in Phase R4 for `agents`-section writers (verifier mode `agents`). |
 | `specialists/technical.md` | Invoked unchanged in Phase R4 for technical-section writers. |
 | `specialists/product.md` | Invoked unchanged in Phase R4 for product-section writers. |
 | `specialists/verifier.md` | Invoked unchanged in Phase R3. |

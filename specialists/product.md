@@ -214,7 +214,7 @@ root.
 wiki/
 ├── index.md                       ← HAND-WRITTEN. Out of scope for writers.
 │
-├── AI/                                ← AI track output (always on; sibling track)
+├── AGENTS/                                ← agents track output (always on; sibling track)
 ├── TECHNICAL/                         ← technical writer output (sibling track)
 │   ├── api/
 │   └── client/

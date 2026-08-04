@@ -196,7 +196,7 @@ All technical writer output goes under `wiki/TECHNICAL/`. The
   under `wiki/`
 - Optionally a small number of cross-repo pages at `wiki/TECHNICAL/`
 
-(`wiki/AI` (agent) and `wiki/PRODUCT` (plain-language) are the other tracks; both are
+(`wiki/AGENTS` (agent) and `wiki/PRODUCT` (plain-language) are the other tracks; both are
 siblings of `TECHNICAL/`. The technical track is opt-in — generated only when the user
 asks for it.)
 
@@ -209,7 +209,7 @@ root.
 wiki/
 ├── index.md                  ← HAND-WRITTEN. Out of scope for writers.
 │
-├── AI/                       ← AI track (the default; this specialist does not write it)
+├── AGENTS/                       ← agents track (the default; this specialist does not write it)
 │   └── ...
 │
 ├── TECHNICAL/                ← technical track (this specialist's output)
@@ -237,7 +237,7 @@ wiki/
 wiki/
 ├── index.md                  ← HAND-WRITTEN. Out of scope.
 │
-├── AI/                       ← AI track (the default; not this specialist's output)
+├── AGENTS/                       ← agents track (the default; not this specialist's output)
 │   └── ...
 │
 ├── TECHNICAL/                ← technical track — one folder per repo
@@ -296,6 +296,16 @@ contain:
 - Links to every repo folder and cross-cutting document under
   `wiki/TECHNICAL/`
 - Quick reference table (build, run, test commands per repo)
+
+**`## Repositories` is orchestrator-owned — never author, edit, or delete it.**
+The finalize step (`../init.md` Phase 3e step 2; refreshed by `../recheck.md`
+R5.2) writes a repo manifest into this index — per repo: the anchor prefix, git
+remote URL, verified commit SHA, dirty flag, and date, plus an
+anchor-resolution note. It is what lets a reader outside this workspace resolve
+`<repo>/<path>:<line>` anchors to real repositories. When regenerating
+`index.md`, preserve any existing `## Repositories` section **verbatim, in
+place**; if writing a fresh index where none exists, leave it out — the
+orchestrator adds it at finalize.
 
 The wiki **root** index (`wiki/index.md`) is separate and out of scope for
 technical writers — it is the hand-written table of contents.

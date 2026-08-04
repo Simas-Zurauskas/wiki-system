@@ -36,31 +36,31 @@ Exclude these directories even if they match: `node_modules/`, `.git/`, `dist/`,
 
 After discovery, **present the candidate list to the user and confirm before proceeding** (the user may also name the repos explicitly at invocation, e.g. `/wiki-system init repo-a repo-c`). Do not silently document directories the user did not intend. **Record the confirmed repo set** — their folder names — in `wiki/.internal/plan.yaml`'s `meta.repos`. This is the project's canonical repo list; `recheck`/`claude`/`notion sync` read it to know the full set and to skip/warn when a repo is absent from the workspace (partial access, below). Repos are matched to workspace folders **by folder name**, so each repo must be cloned under the name recorded here.
 
-For each confirmed repo, also capture its **remote provenance** (orchestrator-run, no sub-agent): `git -C <repo> remote get-url origin` → `meta.repos[].git_url` (record `null` if the command fails or there is no remote — never guess a URL), and the default branch if cheaply determinable (`git -C <repo> symbolic-ref refs/remotes/origin/HEAD` → `meta.repos[].default_branch`, else omit). These fields feed the repo manifest written into `wiki/AI/index.md` at finalize (Phase 3e step 2) — the single place that maps the wiki's `<repo>/<path>` code anchors to real git repositories.
+For each confirmed repo, also capture its **remote provenance** (orchestrator-run, no sub-agent): `git -C <repo> remote get-url origin` → `meta.repos[].git_url` (record `null` if the command fails or there is no remote — never guess a URL), and the default branch if cheaply determinable (`git -C <repo> symbolic-ref refs/remotes/origin/HEAD` → `meta.repos[].default_branch`, else omit). These fields feed the repo manifest written into each enabled code-anchored track index (`wiki/AGENTS/index.md`; `wiki/TECHNICAL/index.md` when enabled — never PRODUCT) at finalize (Phase 3e step 2) — the mapping from the wiki's `<repo>/<path>` code anchors to real git repositories.
 
 ### Documentation Tracks — CONFIRM
 
-The wiki has up to **three** writer tracks (see `specialists/ai.md`, `specialists/technical.md`, `specialists/product.md`). The generator emits track folders with EXACTLY these uppercase names — `wiki/AI`, `wiki/TECHNICAL`, `wiki/PRODUCT` — never any other casing:
+The wiki has up to **three** writer tracks (see `specialists/agents.md`, `specialists/technical.md`, `specialists/product.md`). The generator emits track folders with EXACTLY these uppercase names — `wiki/AGENTS`, `wiki/TECHNICAL`, `wiki/PRODUCT` — never any other casing:
 
-- **ai** — agent-optimized, code-grounded reference under `wiki/AI/`. Audience: AI/LLM **agents** doing a task (loaded on demand / via RAG), not humans browsing. Self-contained, atomic source-anchored claims, invariants + contracts + runbooks + a deterministic flow map + a concise per-area reference + a machine index. Code references allowed. **This track is ALWAYS ON and cannot be disabled** and is **standalone-complete** (it does not require the other tracks to be useful).
+- **agents** — agent-optimized, code-grounded reference under `wiki/AGENTS/`. Audience: AI/LLM **agents** doing a task (loaded on demand / via RAG), not humans browsing. Self-contained, atomic source-anchored claims, invariants + contracts + runbooks + a deterministic flow map + a concise per-area reference + a machine index. Code references allowed. **This track is ALWAYS ON and cannot be disabled** and is **standalone-complete** (it does not require the other tracks to be useful).
 - **technical** — repo-scoped reference under `wiki/TECHNICAL/<repo>/`. Audience: developers. Code references allowed. The technical track **always** nests repos under `wiki/TECHNICAL/` — even a single-repo project produces `wiki/TECHNICAL/<repo>/`, never a repo folder directly under `wiki/`.
 - **product** — feature-scoped reference under `wiki/PRODUCT/`. Audience: PMs, leadership, new joiners. Zero code references — plain language only.
 
-**`ai` is ALWAYS ON (cannot be disabled). `product` and `technical` are OFF (opt-in).** Auto-suggest adjustments from project shape, then confirm — never choose silently:
+**`agents` is ALWAYS ON (cannot be disabled). `product` and `technical` are OFF (opt-in).** Auto-suggest adjustments from project shape, then confirm — never choose silently:
 
 | Signal from the Phase-1 scan | Suggested adjustment |
 | --- | --- |
 | Code repo(s) present and a developer audience will browse docs | suggest adding `technical` |
-| Library / CLI / infra repo with **no** end-user product surface | keep the `ai`-only default — then `notion sync` has nothing to publish, and that's fine |
+| Library / CLI / infra repo with **no** end-user product surface | keep the `agents`-only default — then `notion sync` has nothing to publish, and that's fine |
 | A user-facing app / clear product feature surface | suggest adding `product` |
 
-**Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named — and do NOT promote a heavier set just because the project's `CLAUDE.md` or existing docs happen to reference all three track index pages. An existing reference is not a request: the `ai`-only default stands until the user explicitly opts into more.
+**Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named — and do NOT promote a heavier set just because the project's `CLAUDE.md` or existing docs happen to reference all three track index pages. An existing reference is not a request: the `agents`-only default stands until the user explicitly opts into more.
 
-Before finalizing the plan, ask the user explicitly, with **`ai` alone as the recommended default, presented first / on top** — whether you ask as a single pre-filled confirm or as a multiple-choice list. **Never lead with or pre-recommend a heavier set** (`+ product`, `+ technical`, or all three); offer those *below* the default as opt-in adjustments. `ai` is always present (it cannot be disabled); the recommended option is always `ai` alone:
+Before finalizing the plan, ask the user explicitly, with **`agents` alone as the recommended default, presented first / on top** — whether you ask as a single pre-filled confirm or as a multiple-choice list. **Never lead with or pre-recommend a heavier set** (`+ product`, `+ technical`, or all three); offer those *below* the default as opt-in adjustments. `agents` is always present (it cannot be disabled); the recommended option is always `agents` alone:
 
-> I'll generate the **ai** (agent-optimized) track by default *(recommended)*. You can add **product** (plain-language) [suggest only if the scan signalled a product surface] or **technical** (developer reference) [suggest only if the scan signalled it]. Confirm the track set, or adjust. (Recommended: ai.)
+> I'll generate the **agents** (agent-optimized) track by default *(recommended)*. You can add **product** (plain-language) [suggest only if the scan signalled a product surface] or **technical** (developer reference) [suggest only if the scan signalled it]. Confirm the track set, or adjust. (Recommended: agents.)
 
-Record the chosen set in `wiki/.internal/plan.yaml`'s `meta.tracks` (e.g. `meta.tracks: [ai]` or `[ai, technical, product]`) before drafting the rest of the plan. `ai` is ALWAYS in the set — cannot be removed. Only plan `sections`/`pages` whose `owner_agent` is an enabled track; a disabled track produces no folder, no pages, and no verifier dispatches. Never enable or skip a track silently.
+Record the chosen set in `wiki/.internal/plan.yaml`'s `meta.tracks` (e.g. `meta.tracks: [agents]` or `[agents, technical, product]`) before drafting the rest of the plan. `agents` is ALWAYS in the set — cannot be removed. Only plan `sections`/`pages` whose `owner_agent` is an enabled track; a disabled track produces no folder, no pages, and no verifier dispatches. Never enable or skip a track silently.
 
 ### Output Directory
 
@@ -82,7 +82,7 @@ If nothing yields a clear description, ask the user. Do not guess from filenames
 ### Specialist Prompts (skill files)
 
 ```
-- ai:        specialists/ai.md
+- agents:    specialists/agents.md
 - technical: specialists/technical.md
 - product:   specialists/product.md
 - verifier:  specialists/verifier.md
@@ -241,7 +241,7 @@ A YAML plan makes the downstream pipeline deterministic:
 ### Target structure
 
 The wiki is fully auto-generated: writers produce every track page under the
-enabled track folders (`wiki/AI/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
+enabled track folders (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
 
 The wiki root file `wiki/index.md` is produced by
 the **orchestrator's finalize phase** (Phase 3e), not by writers. It is
@@ -263,7 +263,7 @@ wiki/
 │       └── decisions.md
 ├── index.md                   ← orchestrator-generated in Phase 3e (finalize)
 │
-├── AI/                        ← AI track (ALWAYS ON) — agent-optimized, standalone-complete
+├── AGENTS/                        ← agents track (ALWAYS ON) — agent-optimized, standalone-complete
 │   ├── index.md               ← navigable machine index (the "front door")
 │   ├── invariants.md          ← must-not-violate facts, front-loaded & atomic
 │   ├── glossary.md
@@ -293,11 +293,11 @@ The split between writer scope and orchestrator scope:
 | File / folder              | Produced by                                      |
 | -------------------------- | ------------------------------------------------ |
 | `wiki/index.md`         | Orchestrator (Phase 3e finalize)                 |
-| `wiki/{AI,TECHNICAL,PRODUCT}/**/*.md` | AI / technical / product writer (Phase 3b/3c)    |
+| `wiki/{AGENTS,TECHNICAL,PRODUCT}/**/*.md` | agents / technical / product writer (Phase 3b/3c)    |
 | `CLAUDE.md`                | **Not written by init.** Owned by the `/wiki-system claude` command (`claude-md.md`); init only suggests running it. |
 
 Every `pages[].path` in `wiki/.internal/plan.yaml` MUST start with an enabled
-track folder (`wiki/AI/`, `wiki/TECHNICAL/`, or `wiki/PRODUCT/`). Writers only
+track folder (`wiki/AGENTS/`, `wiki/TECHNICAL/`, or `wiki/PRODUCT/`). Writers only
 produce files under those track folders. The orchestrator produces the root
 files in finalize and never plans them as writer pages.
 
@@ -346,17 +346,17 @@ Record `scope_loc_estimate` for every section and page. If a section exceeds
 
 ### Planning rules
 
-- The **ai** section (always enabled) is a single top-level section
-  `wiki/AI/` (`owner_agent: ai`) with a **fixed standalone-complete
+- The **agents** section (always enabled) is a single top-level section
+  `wiki/AGENTS/` (`owner_agent: agents`) with a **fixed standalone-complete
   shape**: `index.md`, `invariants.md`, `glossary.md`, and the folders `contracts/`,
   `runbooks/`, `map/`, `reference/` (each a sub-section with its own `index.md`). Plan the
   pages inside those folders from the project's agent-facing surfaces (endpoints, job/queue
   contracts, env/config, common change-tasks, control/data flows, and one concise reference
-  page per major area). Size the folders with the scope-to-depth table. The `ai` track is
+  page per major area). Size the folders with the scope-to-depth table. The `agents` track is
   always on and must stand alone — plan it so an agent can act without the technical or
-  product tracks present. When the `technical` track is **also** enabled, the ai pages
+  product tracks present. When the `technical` track is **also** enabled, the agents pages
   **link** to it for narrative depth (set `links_to`) rather than restating it; either way
-  the ai track keeps its own reference pages. See `specialists/ai.md`.
+  the agents track keeps its own reference pages. See `specialists/agents.md`.
 - Technical sections are **repo-scoped** and live under `wiki/TECHNICAL/`.
   Each repo is a section under that track (e.g. `wiki/TECHNICAL/api/`,
   `wiki/TECHNICAL/client/`). The technical track **always** nests repos
@@ -372,17 +372,17 @@ Record `scope_loc_estimate` for every section and page. If a section exceeds
   finalize phase (3e), not by writers. It is never planned as a `pages[]`
   entry in `wiki/.internal/plan.yaml` because it is derived from the rest of
   the wiki, not from `scope_files`. The writer-produced track overviews
-  `wiki/AI/index.md` (the ai track machine index) and `wiki/TECHNICAL/index.md`
+  `wiki/AGENTS/index.md` (the agents track machine index) and `wiki/TECHNICAL/index.md`
   (the technical track overview) ARE in the plan.
 - Every planned page must be written. Do not plan pages you intend to skip.
 - Every `sections[].path` and `pages[].path` MUST start with an enabled track
-  folder (`wiki/AI/`, `wiki/TECHNICAL/`, or `wiki/PRODUCT/`). The orchestrator
+  folder (`wiki/AGENTS/`, `wiki/TECHNICAL/`, or `wiki/PRODUCT/`). The orchestrator
   never plans pages at the wiki root.
 - **Page sizing.** The specialist prompts contain PAGE SIZING guidance — read it
   before planning. Thin pages (< 150 LOC source for technical, < 150 words for
   product) must be merged. Large pages (> 2,000 LOC across unrelated subsystems)
   must be split per the scope-to-depth table. Never plan catch-all pages that group
-  unrelated topics. (The ai track is the exception to merging — its `invariants`,
+  unrelated topics. (The agents track is the exception to merging — its `invariants`,
   `glossary`, and folder `index` pages are kept even when small, because they are the
   track's fixed navigational spine.)
 
@@ -607,7 +607,7 @@ this phase using the Read tool, then dispatch one verifier per page.
 
 1. Determine the page's `mode` from its `owner_agent` in `wiki/.internal/plan.yaml`
    (`technical` → `technical` verifier mode; `product` → `product` verifier mode;
-   `ai` → `ai` verifier mode — code references allowed, anchor-resolution + entailment
+   `agents` → `agents` verifier mode — code references allowed, anchor-resolution + entailment
    checked, per `specialists/verifier.md` Step 4b).
 2. Build the verifier brief (see SUB-AGENT DELEGATION PRINCIPLES below) and
    invoke the Agent tool.
@@ -833,16 +833,16 @@ generated-header (verbatim):
 ```
 
 Read `wiki/.internal/plan.yaml` and the on-disk track folders under `wiki/`
-(`wiki/AI/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/` — only those present) to produce:
+(`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/` — only those present) to produce:
 
 - One-paragraph product description (from CONFIGURATION or inferred from the scan)
 - **Audience guidance** — a brief paragraph on who reads which enabled track
-  (e.g., AI agents → the `ai` track at `wiki/AI/` — start at its
+  (e.g., AI agents → the `agents` track at `wiki/AGENTS/` — start at its
   `index.md`; developers → technical reference; product/leadership → product
   reference). Only mention tracks that are enabled.
 - System architecture summary — how repos relate (brief; Mermaid diagram
   if helpful)
-- Links to every enabled top-level track folder under `wiki/` (`wiki/AI/`,
+- Links to every enabled top-level track folder under `wiki/` (`wiki/AGENTS/`,
   and `wiki/TECHNICAL/` / `wiki/PRODUCT/` if enabled)
 - Quick reference table: build/run/test commands per repo (from CONFIGURATION)
 
@@ -852,18 +852,31 @@ preserve those blocks verbatim — only the auto-generated sections are
 rewritten. If the file is entirely wrapped in skip markers, leave it
 untouched (the project has opted out of auto-generation for this file).
 
-**2. Write the repo manifest into `wiki/AI/index.md` (orchestrator-owned)**
+**2. Write the repo manifest + root agent signposts (orchestrator-owned)**
 
-The AI track's code anchors (`<repo>/<path>:<line>`) are only resolvable by a
-reader who knows which git repository each `<repo>/` prefix names and at what
-commit the anchors were verified — critical when the AI track is consumed
-outside this workspace (a separate docs repo read via MCP, a retriever, another
-agent). That mapping lives in **exactly one place**: a `## Repositories` section
-in `wiki/AI/index.md`, written by the **orchestrator** at finalize — the AI
-writer never authors or edits it (see `specialists/ai.md` § the machine index).
-Insert it immediately **before** the `## Optional` section (or at end of file if
-no `## Optional` exists), replacing any existing `## Repositories` section
-wholesale.
+Code anchors (`<repo>/<path>:<line>`) are only resolvable by a reader who knows
+which git repository each `<repo>/` prefix names and at what commit the anchors
+were verified — critical when a track is consumed outside this workspace (a
+separate docs repo read via MCP, a retriever, another agent). That mapping is a
+`## Repositories` section written by the **orchestrator** at finalize into the
+index of **each enabled code-anchored track**:
+
+- `wiki/AGENTS/index.md` — always (`agents` is always enabled)
+- `wiki/TECHNICAL/index.md` — when the technical track is enabled
+
+The **PRODUCT track never gets one** — product pages must contain zero code
+references (`specialists/product.md`), and the track is published to Notion for
+non-technical readers; git URLs and SHAs there would violate the track's own
+invariant. Track writers never author or edit the section (see
+`specialists/agents.md` § the machine index and `specialists/technical.md` § the
+track index). A track is the unit of standalone consumption, so each index
+carries its own copy rather than pointing at a sibling track; the copies cannot
+drift because this one step rewrites all of them from the same `meta.repos`
+data on every run.
+
+In each index, insert it immediately **before** the `## Optional` section (or at
+end of file if no `## Optional` exists), replacing any existing
+`## Repositories` section wholesale.
 
 For each repo in `meta.repos`, emit one bullet with, in order:
 
@@ -885,11 +898,35 @@ keep the content):
 > Code anchors have the form `<repo>/<path>:<line>` — `<path>` is relative to
 > that repo's root at the commit listed above. Line numbers are hints verified
 > at those commits: when one doesn't land, resolve by the symbol name cited
-> next to it, not by counting lines. Bare `src/...` paths inside a
-> `reference/<repo>/` page belong to that page's repo.
+> next to it, not by counting lines. Bare `src/...` paths inside a repo-scoped
+> page (`reference/<repo>/` in the agents track, `wiki/TECHNICAL/<repo>/` pages)
+> belong to that page's repo.
 
-This section is refreshed on **every** `init`/`recheck` run (see `recheck.md`
-R5.2) so the SHAs never silently lag the verification they claim.
+The section is refreshed in every code-anchored track index on **every**
+`init`/`recheck` run (see `recheck.md` R5.2) so the SHAs never silently lag the
+verification they claim.
+
+**Root agent signposts — `wiki/AGENTS.md` + `wiki/CLAUDE.md`.** A consumer of
+the docs repo itself (an agent reading it via MCP, a clone, or a retriever)
+lands at the repo root, where agent tooling conventionally looks for an
+`AGENTS.md` — without one it has no way to know `AGENTS/index.md` is the front
+door. Write both files at the **docs root**, orchestrator-owned, replaced
+wholesale on every `init`/`recheck` run (same cadence as the manifest):
+
+- `wiki/AGENTS.md` — a tiny fixed signpost, ≤15 lines, never duplicating track
+  content: one-line product description; **"Agents: start at
+  [AGENTS/index.md](AGENTS/index.md)"** (load pages on demand, not
+  cover-to-cover); read `AGENTS/invariants.md` before proposing code changes;
+  resolve `<repo>/<path>:<line>` anchors via the `## Repositories` manifest in
+  `AGENTS/index.md`; humans start at `index.md`. Close with a one-line
+  generated-by comment.
+- `wiki/CLAUDE.md` — a one-line pointer: "See [AGENTS.md](AGENTS.md)." Nothing
+  else — the content lives once, in AGENTS.md.
+
+These are **docs-root** files inside the wiki repo — distinct from the
+**workspace** `CLAUDE.md` beside the code repos, which remains owned
+exclusively by the `/wiki-system claude` command (`claude-md.md`) and is never
+written here.
 
 **3. Cross-link + structural verification**
 
@@ -904,7 +941,7 @@ Run four deterministic checks:
   sibling section contains a counterpart page. Report gaps; either add the missing
   page (via a dispatched writer) or downgrade the parity tag with justification.
 - **Mandatory-heading check (completeness floor).** Every reference page has a
-  `## Purpose` heading (`grep -L '^## Purpose' wiki/{AI,TECHNICAL,PRODUCT}/**/*.md`). A page
+  `## Purpose` heading (`grep -L '^## Purpose' wiki/{AGENTS,TECHNICAL,PRODUCT}/**/*.md`). A page
   missing it is incomplete — re-dispatch its writer. This is only the deterministic
   floor; the substantive, content-conditioned completeness audit (does the page
   cover its `scope_files`? does it have the sections its content warrants?) is the
@@ -998,7 +1035,7 @@ context-poisoning risk outweigh parallelism gain. Past this point, scale by
 deepening the hierarchy (let section writers dispatch their own page writers),
 not by widening the pool.
 
-AI, technical, and product writers share the same pool — dispatch all enabled tracks at the
+agents, technical, and product writers share the same pool — dispatch all enabled tracks at the
 start of Phase 3b. The scheduler fills slots from the combined queue.
 
 The same 10-concurrent cap applies to any parallel sub-agent batch, not just
@@ -1123,7 +1160,7 @@ format.
 
 **page_id:** <slug from wiki/.internal/plan.yaml>
 **page_path:** <absolute path to the draft .md file>
-**mode:** technical | product | ai   (from the page's owner_agent)
+**mode:** technical | product | agents   (from the page's owner_agent)
 **scope_files:** <array of absolute or repo-relative paths>
 **plan_path:** wiki/.internal/plan.yaml
 **report_path:** wiki/.internal/verification/<page-id>.yaml
@@ -1174,19 +1211,19 @@ results come from Phase 3d's verifier sub-agents.
 
 - [ ] **Plan validation.** `wiki/.internal/plan.yaml` parses as YAML, matches the schema
       in `spec/plan-schema.md`, and every page's `path` resolves to a real file
-      under an enabled track folder (`wiki/AI/`, `wiki/TECHNICAL/`, or `wiki/PRODUCT/`).
+      under an enabled track folder (`wiki/AGENTS/`, `wiki/TECHNICAL/`, or `wiki/PRODUCT/`).
 - [ ] **Plan scope invariant.** Every `sections[].path` and `pages[].path` starts
-      with an enabled track folder (`wiki/AI/`, `wiki/TECHNICAL/`, or
+      with an enabled track folder (`wiki/AGENTS/`, `wiki/TECHNICAL/`, or
       `wiki/PRODUCT/`). No planned entry references the wiki root.
-- [ ] **Track coverage.** `meta.tracks` is non-empty (and always contains `ai`),
+- [ ] **Track coverage.** `meta.tracks` is non-empty (and always contains `agents`),
       and for **every** enabled
       track `pages[]`/`sections[]` contain at least one entry with that
       `owner_agent` and the track's folder appears in `sections[].path`
-      (`wiki/AI/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
+      (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
       Conversely, no page has an `owner_agent` that is **not** in `meta.tracks`. A
       plan with zero entries for an enabled track — or entries for a disabled one —
       is a planning bug: halt before stub-out and re-plan. Confirm e.g.
-      `grep -c "owner_agent: ai" wiki/.internal/plan.yaml` ≥ 1 when `ai` is enabled.
+      `grep -c "owner_agent: agents" wiki/.internal/plan.yaml` ≥ 1 when `agents` is enabled.
 - [ ] **Link graph.** Every relative link in every `.md` resolves to an
       existing target. Report in `wiki/.internal/link-report.md`.
 - [ ] **Orphan check.** Every page (except `wiki/index.md`)
@@ -1194,13 +1231,13 @@ results come from Phase 3d's verifier sub-agents.
 - [ ] **Product code-reference linter.** No file under `wiki/PRODUCT/`
       contains backticked PascalCase identifiers, `.ts`/`.tsx`/`.js`/`.py`
       path patterns, `/api/...` URL shapes, or HTTP verb keywords
-      (GET/POST/PUT/DELETE/PATCH). (Applies to `PRODUCT/` only — the `ai` and
+      (GET/POST/PUT/DELETE/PATCH). (Applies to `PRODUCT/` only — the `agents` and
       `technical` tracks allow code references.)
-- [ ] **AI-track integrity** (always — `ai` is always enabled). `wiki/AI/index.md` exists
-      and every other `AI/` page is reachable from it (directly or via a folder
-      `index.md`) — it is the agent's front door. Every `AI/` page has a
+- [ ] **agents-track integrity** (always — `agents` is always enabled). `wiki/AGENTS/index.md` exists
+      and every other `AGENTS/` page is reachable from it (directly or via a folder
+      `index.md`) — it is the agent's front door. Every `AGENTS/` page has a
       `## Provenance` line. **Cross-track dedup (advisory, not a hard gate):**
-      surface any `AI/` page whose prose substantially overlaps a `TECHNICAL/` page
+      surface any `AGENTS/` page whose prose substantially overlaps a `TECHNICAL/` page
       it should instead link to — near-duplicate content is a retrieval distractor.
       Anchor accuracy (every `(path:line)` resolves and entails) is the verifier's
       Step 4b, not a deterministic gate here.
@@ -1211,7 +1248,7 @@ results come from Phase 3d's verifier sub-agents.
       on the overview and `32 endpoints` on the routes page. Derive the noun set
       from this project's own wiki rather than a fixed list — surface every
       "<number> <noun>" pair and group by noun:
-      `grep -rnhoE '\b[0-9]+\s+[a-z][a-z-]+' wiki/AI/ wiki/TECHNICAL/ wiki/PRODUCT/ | sort | uniq -c | sort -rn`
+      `grep -rnhoE '\b[0-9]+\s+[a-z][a-z-]+' wiki/AGENTS/ wiki/TECHNICAL/ wiki/PRODUCT/ | sort | uniq -c | sort -rn`
       then check pages that cite the same noun agree. (Tune the pattern to the
       project's vocabulary; the earlier fixed noun list was Strive-specific.)
 - [ ] **Plan coverage.** Every page in `wiki/.internal/plan.yaml` was written (no
@@ -1250,7 +1287,7 @@ results come from Phase 3d's verifier sub-agents.
 
 - **CWD discipline.** Capture the orchestrator's starting working directory at run start (`pwd`) and treat it as the immutable project root for the entire run. Never `cd` in shell commands the orchestrator itself runs — use absolute paths or paths relative to the captured root. Sub-agents (Explore, writers, verifiers) MUST also receive absolute paths in their briefs and must not rely on shell `cd` state. Past runs ended up with the orchestrator's CWD drifted into `client/` mid-run, after which `ls api/src/` returned "No such file or directory" because the relative path no longer matched. If you find a sub-agent's bash output suggests CWD has changed, stop and re-establish from the captured root before continuing.
 - The orchestrator plans, stubs, writes, and verifies pages **only under the
-  enabled track folders** (`wiki/AI/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
+  enabled track folders** (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
 - In the finalize phase (3e), the orchestrator additionally produces
   `wiki/index.md` from the completed reference tree.
   (It does **not** write `CLAUDE.md` — that is the `/wiki-system claude`
