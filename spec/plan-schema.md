@@ -43,10 +43,15 @@ meta:
                               # is skipped as partial access (../recheck.md Phase R1 step 5) — not an error.
     - name: <folder name>     # the repo's folder name in the workspace (clone under this name)
       path: <workspace-relative folder>   # normally the same as name
+      git_url: <remote URL>   # OPTIONAL — `git remote get-url origin` at scan time; omit or
+                              # null if the repo has no remote. Feeds the repo manifest in
+                              # wiki/AI/index.md § Repositories (../init.md Phase 3e step 2).
+      default_branch: <name>  # OPTIONAL — the remote's default branch (e.g. main/master);
+                              # omit or null when unknown or no remote.
   generated_at: <ISO-8601 date>
   generator_version: "wiki-system v<N> · <model-id>"  # skill version + model that produced this plan;
                                                        # lets recheck detect generator drift, not just source drift
-  schema_version: "1.4"  # bump on breaking changes to this schema
+  schema_version: "1.5"  # bump on breaking changes to this schema
                          # 1.2: folder index file renamed OVERVIEW.md -> index.md; the technical
                          #      track is always nested under wiki/TECHNICAL/<repo>/, one folder
                          #      per repo, never directly under wiki/TECHNICAL/.
@@ -58,6 +63,10 @@ meta:
                          #      name (wiki-<project>); `wiki/` in paths is the logical docs root
                          #      resolved to wiki_dir; repos matched by folder name; an absent repo
                          #      is partial access (recheck R1 step 5), not an error.
+                         # 1.5: repos[] gains OPTIONAL git_url + default_branch (remote provenance
+                         #      for the orchestrator-owned repo manifest in wiki/AI/index.md
+                         #      § Repositories). Non-breaking: plans without them stay valid;
+                         #      recheck backfills for present repos (recheck R1 step 5).
 
 # Sections correspond to folders under wiki/<TRACK>/, where <TRACK> is one of the
 # uppercase literals AI, TECHNICAL, PRODUCT. There are up to THREE tracks:

@@ -205,6 +205,15 @@ crawler-discovery file, which is unsupported). It contains:
 
 Use **relative repo paths** (this is a local file tree, not a served site).
 
+**`## Repositories` is orchestrator-owned — never author, edit, or delete it.** The
+finalize step (`../init.md` Phase 3e step 2; refreshed by `../recheck.md` R5.2) writes a
+repo manifest into this index — per repo: the anchor prefix, git remote URL, verified
+commit SHA, dirty flag, and date, plus an anchor-resolution note. It is what lets a reader
+outside this workspace resolve `<repo>/<path>:<line>` anchors to real repositories. When
+regenerating `index.md`, preserve any existing `## Repositories` section **verbatim, in
+place** (immediately before `## Optional`); if writing a fresh index where none exists,
+leave it out — the orchestrator adds it at finalize.
+
 ---
 
 ## PAGE STRUCTURES (by type)

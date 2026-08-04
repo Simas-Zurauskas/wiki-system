@@ -42,7 +42,7 @@ Four commands. **`init`/`recheck`/`claude` write local artifacts (`wiki/` and `C
 | Command | Reads | What it does (exactly) | When to use |
 | --- | --- | --- | --- |
 | `/wiki-system init` | `init.md` | **Bootstrap the local wiki from scratch.** Scans every target repo (parallel per-repo sub-agents) → confirms the track set (`AI` always on; `PRODUCT` and `TECHNICAL` opt-in) → writes `plan.yaml` → stubs pages → dispatches writers for the enabled tracks → dispatches verifiers (auto-fix `fail_soft` once) → finalizes `wiki/index.md`. Does **not** write `CLAUDE.md` — it suggests `/wiki-system claude` at the end. | No wiki exists yet, or you want a forced full rebuild after a major architectural change. |
-| `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed. Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
+| `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in `wiki/AI/index.md` — SHAs + dirty flags — refreshes on **every** run). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
 | `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AI`. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
 | `/wiki-system notion sync [<root-url>]` | `notion.md` | **Publish the PRODUCT track to Notion — first time *and* every update (one verb).** With **no mapping**: under your root page, mirrors the `wiki/PRODUCT/` tree in place and writes the `notion-sync.yaml` mapping. With a **mapping**: re-renders and pushes only the PRODUCT pages whose content changed, in place (no duplicates). Trusts local hashes; never reads the Notion side or the code. | To first mirror the PRODUCT track to Notion (pass the root URL), and to push later edits. Needs the **Notion MCP** connected. |
 
@@ -63,7 +63,7 @@ What it does:
 - Phase 1: scans target repos
 - Phase 2: plans the wiki structure (writes `wiki/.internal/plan.yaml`)
 - Phase 3: dispatches writer and verifier sub-agents in parallel waves
-- Phase 3e: finalizes `wiki/index.md` (it does **not** write `CLAUDE.md` — it suggests `/wiki-system claude`)
+- Phase 3e: finalizes `wiki/index.md` and writes the repo manifest (`wiki/AI/index.md` § Repositories — git URL + verified SHA + dirty flag per repo; it does **not** write `CLAUDE.md` — it suggests `/wiki-system claude`)
 
 Cost: high — typically 100+ sub-agent dispatches for a mid-sized multi-repo project.
 
@@ -83,7 +83,7 @@ What it does:
 - Phase R2: scans for source code that has no documentation (coverage-gap detection — `init.md` does not provide this)
 - Phase R3: dispatches verifiers against every page in the plan
 - Phase R4: dispatches writers to fix verification failures (one auto-fix retry per page, capped)
-- Phase R5: refreshes root artifacts only if structure changed
+- Phase R5: refreshes root artifacts only if structure changed; the repo manifest in `wiki/AI/index.md` refreshes every run
 
 Cost: moderate — ~50 verifier dispatches for a mid-sized project, plus a handful of writer regens for failures.
 

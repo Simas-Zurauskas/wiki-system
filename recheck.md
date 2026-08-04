@@ -107,6 +107,12 @@ Sequential and fast. No sub-agents.
      "Skipped 2 repos not in this workspace (repo-x, repo-y); their pages were left
      unchanged and treated as source of truth — clone them and re-run to refresh."
      Never delete or `fail_hard` a page merely because its source repo is absent.
+   - While resolving availability, **backfill remote provenance** for each *present*
+     repo whose plan entry predates schema 1.5 (no `git_url` field): run
+     `git -C <repo> remote get-url origin` and record `meta.repos[].git_url`
+     (`null` if no remote — never guess), plus `default_branch` when cheaply
+     determinable. This feeds the repo-manifest refresh in R5.2. Absent repos
+     keep whatever their plan entry already has.
 
 ---
 
@@ -376,12 +382,12 @@ Run the deterministic checks from `init.md` § QUALITY GATES — at minimum:
 Write a fresh `wiki/.internal/link-report.md`.
 
 Also append this run's material decisions to `wiki/.internal/trace/decisions.md`
-per the decision-log spec in `init.md` Phase 3e step 4 — including the per-run
+per the decision-log spec in `init.md` Phase 3e step 5 — including the per-run
 **generator header** (skill version + model) and the orchestrator-only write rule
 (coverage-gap decisions from R2.4, parity downgrades, `fail_hard` escalations,
 writer disagreements). The log is append-only — never truncate prior runs.
 
-Emit the **run-level diagnostics** from `init.md` Phase 3e step 5 (loop-friction
+Emit the **run-level diagnostics** from `init.md` Phase 3e step 6 (loop-friction
 per section + the framework-level rubric critique) in the recheck summary — they
 are especially useful here, where recurring drift across runs is the signal worth
 catching.
@@ -399,9 +405,20 @@ generated-header, verbatim:
 ```
 
 Hand-edit zones survive.
-Skip this step entirely if the recheck made zero structural changes
-(no new pages, no extended scope, no successful regens) — there is
+Skip the `wiki/index.md` regeneration if the recheck made zero structural
+changes (no new pages, no extended scope, no successful regens) — there is
 nothing new to surface at the root.
+
+**The repo manifest is NOT covered by that skip — refresh it on every run.**
+Rewrite the `## Repositories` section of `wiki/AI/index.md` per `init.md`
+Phase 3e step 2: for each **present** repo, record the current
+`git -C <repo> rev-parse HEAD` SHA, the dirty flag from
+`git -C <repo> status --porcelain`, `git_url`/`default_branch` from the plan
+(including any R1 backfill), and this run's verification date. An **absent**
+repo keeps its existing manifest entry verbatim, annotated
+"not present this run — last verified <date>". A recheck that verified pages
+against new code but left old SHAs in the manifest would misstate what the
+docs were checked against — this step is why the manifest can be trusted.
 
 ### R5.3 Do NOT touch CLAUDE.md
 

@@ -36,6 +36,8 @@ Exclude these directories even if they match: `node_modules/`, `.git/`, `dist/`,
 
 After discovery, **present the candidate list to the user and confirm before proceeding** (the user may also name the repos explicitly at invocation, e.g. `/wiki-system init repo-a repo-c`). Do not silently document directories the user did not intend. **Record the confirmed repo set** — their folder names — in `wiki/.internal/plan.yaml`'s `meta.repos`. This is the project's canonical repo list; `recheck`/`claude`/`notion sync` read it to know the full set and to skip/warn when a repo is absent from the workspace (partial access, below). Repos are matched to workspace folders **by folder name**, so each repo must be cloned under the name recorded here.
 
+For each confirmed repo, also capture its **remote provenance** (orchestrator-run, no sub-agent): `git -C <repo> remote get-url origin` → `meta.repos[].git_url` (record `null` if the command fails or there is no remote — never guess a URL), and the default branch if cheaply determinable (`git -C <repo> symbolic-ref refs/remotes/origin/HEAD` → `meta.repos[].default_branch`, else omit). These fields feed the repo manifest written into `wiki/AI/index.md` at finalize (Phase 3e step 2) — the single place that maps the wiki's `<repo>/<path>` code anchors to real git repositories.
+
 ### Documentation Tracks — CONFIRM
 
 The wiki has up to **three** writer tracks (see `specialists/ai.md`, `specialists/technical.md`, `specialists/product.md`). The generator emits track folders with EXACTLY these uppercase names — `wiki/AI`, `wiki/TECHNICAL`, `wiki/PRODUCT` — never any other casing:
@@ -850,7 +852,46 @@ preserve those blocks verbatim — only the auto-generated sections are
 rewritten. If the file is entirely wrapped in skip markers, leave it
 untouched (the project has opted out of auto-generation for this file).
 
-**2. Cross-link + structural verification**
+**2. Write the repo manifest into `wiki/AI/index.md` (orchestrator-owned)**
+
+The AI track's code anchors (`<repo>/<path>:<line>`) are only resolvable by a
+reader who knows which git repository each `<repo>/` prefix names and at what
+commit the anchors were verified — critical when the AI track is consumed
+outside this workspace (a separate docs repo read via MCP, a retriever, another
+agent). That mapping lives in **exactly one place**: a `## Repositories` section
+in `wiki/AI/index.md`, written by the **orchestrator** at finalize — the AI
+writer never authors or edits it (see `specialists/ai.md` § the machine index).
+Insert it immediately **before** the `## Optional` section (or at end of file if
+no `## Optional` exists), replacing any existing `## Repositories` section
+wholesale.
+
+For each repo in `meta.repos`, emit one bullet with, in order:
+
+- the anchor prefix — the folder name plus `/` (e.g. `repo-a/`), stated as
+  "anchors beginning `repo-a/` resolve in:"
+- `git_url` from the plan, or the literal words **"no remote — local only"**
+  when null (never invent a URL)
+- `default_branch` when known
+- the commit verified against: `git -C <repo> rev-parse HEAD` at finalize time
+- a **dirty flag**: if `git -C <repo> status --porcelain` is non-empty, append
+  "**working tree dirty at verification** — pages may describe uncommitted
+  code"; a reader fetching `git_url` at the recorded SHA may not see what the
+  docs describe until it is pushed
+- the verification date (ISO-8601)
+
+Close the section with a short fixed **anchor-resolution note** (adapt wording,
+keep the content):
+
+> Code anchors have the form `<repo>/<path>:<line>` — `<path>` is relative to
+> that repo's root at the commit listed above. Line numbers are hints verified
+> at those commits: when one doesn't land, resolve by the symbol name cited
+> next to it, not by counting lines. Bare `src/...` paths inside a
+> `reference/<repo>/` page belong to that page's repo.
+
+This section is refreshed on **every** `init`/`recheck` run (see `recheck.md`
+R5.2) so the SHAs never silently lag the verification they claim.
+
+**3. Cross-link + structural verification**
 
 Run four deterministic checks:
 
@@ -869,7 +910,7 @@ Run four deterministic checks:
   cover its `scope_files`? does it have the sections its content warrants?) is the
   verifier's Step 3b (`specialists/verifier.md`), which emits `omission` issues.
 
-**3. Suggest `/wiki-system claude` — do NOT write `CLAUDE.md` here**
+**4. Suggest `/wiki-system claude` — do NOT write `CLAUDE.md` here**
 
 `CLAUDE.md` is owned by the dedicated `/wiki-system claude` command
 (`claude-md.md`), which is the **only** command that writes it. `init` does not
@@ -884,7 +925,7 @@ When the wiki is finalized, tell the user:
 (See `claude-md.md` for the file's structure, the ≤200-line lean standard, and the
 on-request docs policy it bakes in.)
 
-**4. Maintain the decision log (`wiki/.internal/trace/decisions.md`)**
+**5. Maintain the decision log (`wiki/.internal/trace/decisions.md`)**
 
 This is the append-only run history that keeps `CLAUDE.md` and the wiki pages
 free of run narrative. It is referenced as the destination for run-level history
@@ -915,7 +956,7 @@ only** — sub-agents return decisions in their result and the orchestrator appe
 them; sub-agents never write the log concurrently (it is the one shared append
 target, and concurrent appends would corrupt it).
 
-**5. Run-level diagnostics (advisory — surface, don't gate)**
+**6. Run-level diagnostics (advisory — surface, don't gate)**
 
 Two cheap meta-signals computed from this run's verifier reports, written to the
 final run summary (and the notable ones appended to `decisions.md`). Neither
@@ -1177,7 +1218,7 @@ results come from Phase 3d's verifier sub-agents.
       skipped pages; no pages outside the plan unless recorded via a resolved
       `split_request`).
 - [ ] **Completeness floor.** Every reference page has its mandatory `## Purpose`
-      heading (deterministic check, Phase 3e step 2). Substantive completeness —
+      heading (deterministic check, Phase 3e step 3). Substantive completeness —
       whether each page covered its `scope_files` and has the sections its content
       warrants — is enforced by the verifier's Step 3b `omission` issues flowing
       through the verdict (no separate gate needed).
