@@ -488,7 +488,12 @@ Run these before reporting the run as complete. Subset of `init.md`
 - Phase R2 requires human checkpoint before patching the plan. Auto-decided
   expansion is forbidden.
 - Files outside the enabled tracks under `wiki/` are out of scope. The recheck
-  never writes to the wiki root except as Phase R5 specifies.
+  never writes to the wiki root except as Phase R5 specifies, and never reads,
+  walks, or mentions user-owned docs-root files or folders (task workspaces,
+  audit/research folders, a hand-written `README.md` — anything the skill did
+  not generate). This includes the R5.1 deterministic gates, which run at the
+  generated-surfaces scope defined in `init.md` Phase 3e step 3 / § QUALITY
+  GATES.
 - **Partial access:** a repo from `meta.repos` absent from the workspace is skipped,
   not failed. Pages backed only by absent repos are never verified, modified, flagged,
   or deleted this run — the committed wiki is their source of truth. Report skipped repos.

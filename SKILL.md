@@ -24,6 +24,15 @@ When this skill or any of its sub-prompts says "read `specialists/technical.md`"
 
 Before picking a mode, establish the workspace and resolve the docs root.
 
+0. **Skill self-update check (mechanical — do not reason about it).** Run
+   `bash <skill-dir>/check-update.sh`, where `<skill-dir>` is the directory
+   holding this `SKILL.md`. No output means the skill is current: proceed
+   silently. Any output is a pre-formatted banner: relay it to the user
+   **verbatim**, then ask whether to continue on the current version or stop
+   so they can update first. Do not update the clone yourself, and do not
+   inspect git state beyond what the banner says — the script has already
+   done all of that.
+
 1. Run `pwd` and `ls -la`. **CWD is the workspace** — the folder the user opened Claude Code in. It holds, as siblings: the project's docs folder `wiki-{project}/`, one or more **code repos** (each its own git repo, e.g. `repo-a/`, `repo-b/`), and the developer's local `CLAUDE.md`. **The workspace itself is normally NOT a git repo — that is expected, not an error.** Halt only if CWD is clearly wrong (`~`, `/`, or a folder with no code repos and no `wiki-*` folder) and ask where the project's workspace is.
 
 2. **Resolve the docs root.** Find the project's docs folder: the `wiki-*/` directory in CWD that contains a `.internal/plan.yaml` marker. Call it `<WIKI>` (it is `wiki-{project}`, e.g. `wiki-acme`).
@@ -167,6 +176,7 @@ If the user names a removed command, map it: `notion init`/`notion claude` were 
 
 - It does NOT modify source code in target repos. Read-only on `scope_files`.
 - It does NOT touch `specs/`, `.claude/`, or config — those are not its concern (`specs/` is stagegate territory).
+- It does NOT touch user content inside the docs root. The skill's surface inside `<WIKI>/` is exactly: the enabled track folders (`AGENTS/`, plus `TECHNICAL/`/`PRODUCT/` when enabled), `index.md`, the root signposts `AGENTS.md` + `CLAUDE.md`, and `.internal/`. Anything else at the docs root — a hand-written `README.md`, task workspaces (`tasks/`, `notes/`), audit/research folders, any file or folder the skill did not generate — is **user territory**: never written, never deleted, never read into the documentation-state classification, never walked by the link-graph/orphan gates, and never mentioned in generated files. Users may create docs-root files and folders freely without registering them anywhere. The content specs for `index.md` and the root signposts are **exhaustive** — orchestrators must not append sections or lines beyond them; a user who wants a pointer to their own folders puts it in their `README.md` or inside an `AUTOREGEN_SKIP` block in `index.md`.
 - The generation modes (bootstrap, recheck) do NOT publish to Notion — they only produce/maintain the local `wiki/` tree. Notion is its own mode: **Mode 3** (`notion.md`, `notion sync`), over the Notion MCP.
 - It does NOT replace ADRs, design docs, tutorials, or onboarding guides. Those are out of scope by design — see `README.md` § What it solves.
 

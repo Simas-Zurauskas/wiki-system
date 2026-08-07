@@ -7,6 +7,45 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v11 — 2026-08-07
+
+**User-owned docs-root content is explicitly out of bounds.**
+
+- The docs root may contain user-created files and folders the skill did not
+  generate — task workspaces (`tasks/`, `notes/`), audit/research folders, a
+  hand-written `README.md`. These were already unmanaged in practice; the spec
+  now guarantees it everywhere the wiki tree is read or walked: never written
+  or deleted, never read into the Phase 1 documentation-state classification
+  (the phase that historically deleted a pre-existing docs-root `README.md` as
+  "outdated"), never walked by the link-graph/orphan checks (Phase 3e step 3
+  **and** § QUALITY GATES — the latter is what recheck R5.1 executes), and
+  never mentioned in generated files. New bullet in `SKILL.md` § What this
+  skill does NOT do; matching constraint extension in `recheck.md`
+  § CONSTRAINTS ("never reads, walks, or mentions").
+- The content specs for `wiki/index.md` (Phase 3e step 1) and the root
+  signposts `wiki/AGENTS.md` + `wiki/CLAUDE.md` (Phase 3e step 2) are declared
+  **exhaustive** — orchestrators must not append extra sections or lines (past
+  runs freelanced a `## Notes` section into index.md and a `notes/` line into
+  AGENTS.md; both were spec-unprotected and could silently vanish on any run).
+  A user pointer belongs in the user-owned `README.md` or an `AUTOREGEN_SKIP`
+  block in `index.md` (AGENTS.md has no skip mechanism by design).
+- Orphan-check exemptions now include the root signposts (found by filename
+  convention, legitimately inbound-linkless) in both Phase 3e step 3 and the
+  quality gate.
+- **New `check-update.sh` + pre-flight step 0: mechanical self-update check.**
+  Every invocation starts by running the script; the orchestrator only relays
+  its output verbatim — zero git reasoning in the prompts. The script is
+  silent unless the skill clone is behind its origin, in which case it prints
+  a pre-formatted banner (local vs remote `VERSION` + SHAs, commits behind,
+  and the right next step: `git pull --ff-only` for a clean clone, "reconcile
+  manually" when the clone is dirty or has unpushed commits). Engineering
+  properties: fetch is TTL-cached at 24h via a stamp inside `.git/` (never
+  dirties the tree; stamp touched only on successful fetch so failures retry),
+  fully non-interactive (`GIT_TERMINAL_PROMPT=0`, SSH BatchMode, bounded HTTP
+  transfer), always exits 0, and offline runs still compare against the
+  last-fetched remote state. Tradeoff: a push to origin may go unnoticed for
+  up to 24h.
+
 ## v10 — 2026-08-04
 
 **Repo manifest in every code-anchored track index; track `ai` renamed `agents`.**
