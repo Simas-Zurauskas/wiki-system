@@ -1,13 +1,13 @@
 ---
 name: wiki-system
-description: Generate, audit, and re-check structured codebase documentation. Use when the user wants to (a) bootstrap documentation for a project that has no or minimal docs, (b) audit existing docs against current source code to find drift or coverage gaps after a development gap, or (c) refresh stale wiki content. Operates in the user's workspace (CWD) — a folder holding the project's code repos and its docs side by side. Discovers the project's target repositories, plans a multi-section wiki, dispatches writer/verifier sub-agents, and produces a per-project wiki-{project}/ docs repo. Four commands: init (full generation), recheck (audit the existing wiki against code), claude (generate/refresh CLAUDE.md), and notion sync (publish the PRODUCT track to Notion).
+description: Generate, audit, and re-check structured codebase documentation. Use when the user wants to (a) bootstrap documentation for a project that has no or minimal docs, (b) audit existing docs against current source code to find drift or coverage gaps after a development gap, or (c) refresh stale wiki content. Operates in the user's workspace (CWD) — a folder holding the project's code repos and its docs side by side. Discovers the project's target repositories, plans a multi-section wiki, dispatches writer/verifier sub-agents, and produces a per-project wiki-{project}/ docs repo. Three commands: init (full generation), recheck (audit the existing wiki against code), and claude (generate/refresh CLAUDE.md).
 ---
 
 # wiki-system
 
 This skill generates and maintains structured codebase documentation. It runs in the user's **workspace** (CWD) — the folder holding the project's code repos and its docs — discovering the project's target repos, planning the wiki structure, dispatching writer and verifier sub-agents, and producing the project's `wiki-{project}/` docs repo.
 
-**Skill version.** The canonical version is the single integer in the `VERSION` file beside this `SKILL.md`. Read it at run start; bump it there — and nowhere else — whenever the prompt files change materially. Every orchestrator (`init`, `recheck`, `claude`, `notion sync`) composes a `generator_version` string — `"wiki-system v<VERSION> · <model-id>"` (with `<VERSION>` the integer read from the file and `<model-id>` the running model — e.g. `wiki-system v8 · claude-opus-4-8`) — and stamps it into the run's artifacts (`meta.generator_version` in `plan.yaml` and `notion-sync.yaml`, plus the per-run header in `decisions.md`). This is what lets a recheck distinguish "the source code drifted" from "this page/mapping was produced by an older skill or model" and decide whether a fuller re-audit is warranted.
+**Skill version.** The canonical version is the single integer in the `VERSION` file beside this `SKILL.md`. Read it at run start; bump it there — and nowhere else — whenever the prompt files change materially. Every orchestrator (`init`, `recheck`, `claude`) composes a `generator_version` string — `"wiki-system v<VERSION> · <model-id>"` (with `<VERSION>` the integer read from the file and `<model-id>` the running model — e.g. `wiki-system v8 · claude-opus-4-8`) — and stamps it into the run's artifacts (`meta.generator_version` in `plan.yaml`, plus the per-run header in `decisions.md`). This is what lets a recheck distinguish "the source code drifted" from "this page/mapping was produced by an older skill or model" and decide whether a fuller re-audit is warranted.
 
 ## Two roots — read this first
 
@@ -15,7 +15,7 @@ This skill works with two unrelated roots. Confusing them is the most common fai
 
 | Root | What it contains | How to reference |
 | --- | --- | --- |
-| **Skill files** — this `SKILL.md`, `VERSION`, `init.md`, `recheck.md`, `claude-md.md`, `notion.md`, `README.md`, `specialists/`, `spec/` | The prompts and references that drive the orchestration. Live wherever Claude Code installed this skill (typically `.claude/skills/wiki-system/` or `~/.claude/skills/wiki-system/`). | Paths inside this skill (e.g. `specialists/technical.md`) are relative to the prompt file mentioning them. The skill machinery resolves them. |
+| **Skill files** — this `SKILL.md`, `VERSION`, `init.md`, `recheck.md`, `claude-md.md`, `README.md`, `check-update.sh`, `specialists/`, `spec/` | The prompts and references that drive the orchestration. Live wherever Claude Code installed this skill (typically `.claude/skills/wiki-system/` or `~/.claude/skills/wiki-system/`). | Paths inside this skill (e.g. `specialists/technical.md`) are relative to the prompt file mentioning them. The skill machinery resolves them. |
 | **Project files** — the docs root `wiki-{project}/` (= `<WIKI>/`, incl. `.internal/plan.yaml`), the sibling **code repos** (`repo-a/`, `repo-b/`, …), and the developer's local `CLAUDE.md` | The user's **workspace** — the directory Claude Code was invoked from. | Paths are relative to CWD (the workspace); `wiki/` in prompts means the resolved `<WIKI>/`. Never relative to this skill. |
 
 When this skill or any of its sub-prompts says "read `specialists/technical.md`", that's a skill file. When it says "scan `api/src/`" or "write `wiki/.internal/plan.yaml`", those are project files relative to CWD.
@@ -46,16 +46,15 @@ Before picking a mode, establish the workspace and resolve the docs root.
 
 ## Invocations at a glance
 
-Four commands. **`init`/`recheck`/`claude` write local artifacts (`wiki/` and `CLAUDE.md`); `notion sync` drives the Notion mirror.** The verification ground truth is always the **source code** — `recheck` checks local files against code; `notion sync` and `claude` verify nothing.
+Three commands, all writing local artifacts (`wiki/` and `CLAUDE.md`). The verification ground truth is always the **source code** — `recheck` checks local files against code; `claude` verifies nothing.
 
 | Command | Reads | What it does (exactly) | When to use |
 | --- | --- | --- | --- |
 | `/wiki-system init` | `init.md` | **Bootstrap the local wiki from scratch.** Scans every target repo (parallel per-repo sub-agents) → confirms the track set (`AGENTS` always on; `PRODUCT` and `TECHNICAL` opt-in) → writes `plan.yaml` → stubs pages → dispatches writers for the enabled tracks → dispatches verifiers (auto-fix `fail_soft` once) → finalizes `wiki/index.md`. Does **not** write `CLAUDE.md` — it suggests `/wiki-system claude` at the end. | No wiki exists yet, or you want a forced full rebuild after a major architectural change. |
 | `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in each code-anchored track index — `wiki/AGENTS/index.md`, and `wiki/TECHNICAL/index.md` when enabled; SHAs + dirty flags — refreshes on **every** run). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
 | `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AGENTS`. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
-| `/wiki-system notion sync [<root-url>]` | `notion.md` | **Publish the PRODUCT track to Notion — first time *and* every update (one verb).** With **no mapping**: under your root page, mirrors the `wiki/PRODUCT/` tree in place and writes the `notion-sync.yaml` mapping. With a **mapping**: re-renders and pushes only the PRODUCT pages whose content changed, in place (no duplicates). Trusts local hashes; never reads the Notion side or the code. | To first mirror the PRODUCT track to Notion (pass the root URL), and to push later edits. Needs the **Notion MCP** connected. |
 
-Mental model: **`init` / `recheck`** = create / audit the local wiki. **`claude`** = (re)generate `CLAUDE.md` from the wiki/repo, pointing agents at `wiki/AGENTS`. **`notion sync`** = push the local PRODUCT track → Notion (first publish + updates). The detailed routing for each mode is below.
+Mental model: **`init` / `recheck`** = create / audit the local wiki. **`claude`** = (re)generate `CLAUDE.md` from the wiki/repo, pointing agents at `wiki/AGENTS`. The detailed routing for each mode is below.
 
 ## Mode selection
 
@@ -98,52 +97,11 @@ Cost: moderate — ~50 verifier dispatches for a mid-sized project, plus a handf
 
 **To execute Mode 2:** read `recheck.md` and follow its phases end-to-end.
 
-### Mode 3 — Notion (`notion.md`)
-
-Use when the user wants to **publish the PRODUCT track to Notion** — a
-one-directional push of the existing local `wiki/PRODUCT/` tree (disk → Notion).
-A single invocation:
-
-- `/wiki-system notion sync [<root-page-url>]` (→ `notion.md`) — publish. **One verb
-  for both the first publish and every update:** with no mapping it creates the
-  mirror under the supplied root page and writes the mapping; with a mapping it
-  pushes only changed PRODUCT pages in place (no duplicates). Pass the root URL the
-  first time (or you'll be asked).
-
-> **Routing note.** Requests naming Notion are **Mode 3** (`notion sync` →
-> `notion.md`, publish the PRODUCT track). For a bare "set up the Notion docs",
-> route here — `notion sync` publishes the local `wiki/PRODUCT/` (build the local
-> wiki first with **Mode 1** `init` if none exists). Route to **Mode 1**
-> (`init.md`) for a **local** build (`init`, Notion not mentioned).
-
-Trigger signals:
-- The user said "sync to Notion", "publish the wiki to Notion", "push the docs
-  to Notion", "publish the PRODUCT track to Notion", "set up the Notion mirror",
-  or similar
-- The user mentioned a Notion root/destination page
-
-Requirements (checked by `notion.md` in its preflight, not here):
-- The **Notion MCP** must be connected — this command drives Notion entirely
-  through the `notion-*` MCP tools. No token/REST fallback.
-- A destination root page (captured on first run and persisted to
-  `wiki/.internal/notion-sync.yaml`; reused automatically thereafter).
-- An existing local `wiki/PRODUCT/` tree to publish.
-
-What it does — mirrors the PRODUCT track under the root page:
-- Mirrors the `wiki/PRODUCT/` tree in place: folders-with-`index.md` become pages
-  whose children are their sub-pages; leaf `.md` files become childless pages.
-- Icons only on pages that have children. Two-pass: create pages to learn their
-  ids, then rewrite cross-links into Notion page links.
-- Idempotent and resumable via the persisted mapping — re-runs update changed
-  pages in place rather than duplicating the tree.
-
-**To execute Mode 3:** read `notion.md` and follow its phases end-to-end.
-
-### Mode 4 — CLAUDE.md (`claude-md.md`)
+### Mode 3 — CLAUDE.md (`claude-md.md`)
 
 Use when the user wants to **create or update the workspace `CLAUDE.md`** — the
 agent-context file, **individual per developer and not committed**. This is the **only**
-mode that writes `CLAUDE.md`; `init`, `recheck`, and `notion sync` never touch it.
+mode that writes `CLAUDE.md`; `init` and `recheck` never touch it.
 
 Trigger signals:
 - The user said "update CLAUDE.md", "regenerate CLAUDE.md", "fix up the project
@@ -160,7 +118,7 @@ work) and confirms before overwriting an existing file.
 
 Cost: low — no writer/verifier sub-agents; one orchestrator pass.
 
-**To execute Mode 4:** read `claude-md.md` and follow its phases end-to-end.
+**To execute Mode 3:** read `claude-md.md` and follow its phases end-to-end.
 
 ### When the request is ambiguous
 
@@ -170,14 +128,14 @@ If the user's intent is unclear (e.g. "update the docs"), ask exactly one questi
 
 Then route accordingly. Do NOT choose silently.
 
-If the user names a removed command, map it: `notion init`/`notion claude` were removed → use `init`/`claude`; `notion recheck` → use `recheck` then `notion sync`.
+If the user names a removed command: Notion publishing (`notion sync` and the older `notion init`/`notion claude`/`notion recheck`) was removed entirely in v11 — explain briefly that the skill no longer publishes to Notion and the local `wiki/` tree is the only output; route any remaining intent to `init`/`recheck`/`claude`.
 
 ## What this skill does NOT do
 
 - It does NOT modify source code in target repos. Read-only on `scope_files`.
 - It does NOT touch `specs/`, `.claude/`, or config — those are not its concern (`specs/` is stagegate territory).
 - It does NOT touch user content inside the docs root. The skill's surface inside `<WIKI>/` is exactly: the enabled track folders (`AGENTS/`, plus `TECHNICAL/`/`PRODUCT/` when enabled), `index.md`, the root signposts `AGENTS.md` + `CLAUDE.md`, and `.internal/`. Anything else at the docs root — a hand-written `README.md`, task workspaces (`tasks/`, `notes/`), audit/research folders, any file or folder the skill did not generate — is **user territory**: never written, never deleted, never read into the documentation-state classification, never walked by the link-graph/orphan gates, and never mentioned in generated files. Users may create docs-root files and folders freely without registering them anywhere. The content specs for `index.md` and the root signposts are **exhaustive** — orchestrators must not append sections or lines beyond them; a user who wants a pointer to their own folders puts it in their `README.md` or inside an `AUTOREGEN_SKIP` block in `index.md`.
-- The generation modes (bootstrap, recheck) do NOT publish to Notion — they only produce/maintain the local `wiki/` tree. Notion is its own mode: **Mode 3** (`notion.md`, `notion sync`), over the Notion MCP.
+- It does NOT publish anywhere external. The local `wiki/` tree is the only output (Notion publishing existed through v10 and was removed in v11).
 - It does NOT replace ADRs, design docs, tutorials, or onboarding guides. Those are out of scope by design — see `README.md` § What it solves.
 
 ## See also (skill files)
@@ -185,7 +143,6 @@ If the user names a removed command, map it: `notion init`/`notion claude` were 
 - `README.md` — full system explainer: philosophy, architecture, design decisions, failure modes
 - `init.md` — bootstrap orchestrator (read this in Mode 1)
 - `recheck.md` — recheck orchestrator (read this in Mode 2)
-- `notion.md` — Notion publish orchestrator (push the local `wiki/PRODUCT/` track to Notion): `notion sync` (Mode 3)
+- `claude-md.md` — `CLAUDE.md` orchestrator (read this in Mode 3)
 - `specialists/agents.md`, `specialists/technical.md`, `specialists/product.md`, `specialists/verifier.md` — sub-agent prompts dispatched by the orchestrators (one writer specialist per track: `AGENTS` always on; `PRODUCT` and `TECHNICAL` opt-in)
 - `spec/plan-schema.md` — authoritative schema for `wiki/.internal/plan.yaml`
-- `spec/notion-sync-schema.md` — authoritative schema for `wiki/.internal/notion-sync.yaml` (the Notion mapping)

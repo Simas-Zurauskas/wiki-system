@@ -467,7 +467,7 @@ that would be empty or forced.
 ## WRITING STANDARDS
 
 - **Page titles (the first `# H1`) are short, bare names.** The H1 becomes the
-  page/sidebar title in the wiki tree and the Notion mirror — make it the plain
+  page/sidebar title in the wiki tree — make it the plain
   repo/section/page name (`# ew-api`, `# Authentication`, `# Components`, `# Technical`),
   never prefixed with the project name (`elf-watch — …`) or suffixed with structural meta
   (`— index`, `— Backend HTTP API`, `Overview`, `Component Library`). Put descriptive

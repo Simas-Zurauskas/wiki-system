@@ -283,7 +283,7 @@ definition, and where it is defined in source.
 ## WRITING STANDARDS
 
 - **Page titles (the first `# H1`) are short, bare names.** The H1 becomes the page's
-  title in the wiki tree and the Notion mirror — make it the plain section/folder/page
+  title in the wiki tree — make it the plain section/folder/page
   name (`# AGENTS`, `# Contracts`, `# Runbooks`, `# Invariants`, `# ew-api`), never prefixed
   with the project name (`elf-watch — …`) or suffixed with structural meta (`— index`,
   `— task index`, `(AGENTS/map)`, `per-repo …`). Put any descriptive context in the opening

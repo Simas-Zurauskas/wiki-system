@@ -2,7 +2,7 @@
 
 Create or update the workspace `CLAUDE.md` to a lean, high-signal **agent-context
 file**. This is the **only** wiki-system prompt that writes the **workspace**
-`CLAUDE.md`. `init`, `recheck`, and `notion sync` never touch it — they only
+`CLAUDE.md`. `init` and `recheck` never touch it — they only
 suggest running this one. (The one-line `CLAUDE.md`/`AGENTS.md` signposts at the
 **docs root** inside the wiki repo are a different artifact — orchestrator-owned,
 written by `init`/`recheck` finalize per `init.md` Phase 3e step 2 — and are not
@@ -128,7 +128,6 @@ out-of-band edits drift and conflict with regeneration.
 When a refresh is wanted, run:
 - `/wiki-system recheck` — audit & refresh the local wiki against current code
 - `/wiki-system claude` — refresh this file
-- `/wiki-system notion sync` — push the wiki to Notion (if mirrored)
 
 For a full rebuild after a major architectural change: `/wiki-system init`.
 ```

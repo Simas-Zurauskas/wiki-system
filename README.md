@@ -1,6 +1,6 @@
 # Wiki System
 
-A Claude Code skill that generates and maintains structured codebase documentation. You run it in a **workspace** — a folder holding the project's code repos beside its docs. It reads the repos' source, plans a multi-page wiki, dispatches writer and verifier sub-agents, and produces a per-project `wiki-{project}/` docs repo — every claim checked against the source it documents. It can also mirror the `PRODUCT` track to Notion.
+A Claude Code skill that generates and maintains structured codebase documentation. You run it in a **workspace** — a folder holding the project's code repos beside its docs. It reads the repos' source, plans a multi-page wiki, dispatches writer and verifier sub-agents, and produces a per-project `wiki-{project}/` docs repo — every claim checked against the source it documents.
 
 This README explains how the system works and why it's built this way. `SKILL.md` is the operational entry point (modes, routing, pre-flight); read that to run it.
 
@@ -11,14 +11,14 @@ This README explains how the system works and why it's built this way. `SKILL.md
 - **Docs drift from code.** Hand-written docs go stale; auto-generated docs (Swagger, JSDoc) only cover API shape, not behavior, integration, or gotchas. This system writes natural-language docs from source and re-verifies them against source on every recheck.
 - **Different readers need different docs.** AI agents want self-contained, source-anchored invariants/contracts/runbooks loaded on demand; engineers want file paths and function names; product people want flows and rules in plain language. The pipeline produces up to three tracks — `AGENTS` (always on), plus opt-in `PRODUCT` and `TECHNICAL` — from the same source, with the same accuracy guarantee.
 
-It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Durable hand-written narrative — plans, RFCs, research — lives in Notion, outside the pipeline.
+It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Durable hand-written narrative — plans, RFCs, research — lives in user-owned docs-root folders (task workspaces, research folders), outside the pipeline.
 
 ---
 
 ## Core ideas
 
 1. **Source code is the source of truth.** Every auto-generated claim must be verifiable against source at HEAD. Writers read source; verifiers re-read it. Nothing is trusted because "the model knows" or "we said so last time."
-2. **One generated home.** `wiki/` is auto-generated and authoritative for "what the system does" — every page written from source and re-verified against it. Hand-written intent (plans, RFCs, research) lives in Notion, outside the pipeline. Small in-place hand-edits survive re-runs via `AUTOREGEN_SKIP` zones.
+2. **One generated home.** `wiki/` is auto-generated and authoritative for "what the system does" — every page written from source and re-verified against it. Hand-written intent (plans, RFCs, research) lives in user-owned docs-root folders, outside the pipeline. Small in-place hand-edits survive re-runs via `AUTOREGEN_SKIP` zones.
 3. **The plan is the coordination spec.** `wiki/.internal/plan.yaml` defines every page, its source files, its writer, and its links. The orchestrator writes it once; writers and verifiers consume it. A run interrupted mid-flight resumes from the plan plus on-disk state.
 4. **The verifier is the only quality gate.** No human-confirm step. The verifier's verdict decides a page's fate: accept, auto-fix, or flag for human review.
 5. **Verify cheaply, regenerate only what fails.** A recheck verifies pages (cheap, read-only) and regenerates only those that drift. With `git diff`, pages whose source is unchanged are skipped entirely.
@@ -31,10 +31,9 @@ It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Dura
 wiki/
 ├── index.md                ← orchestrator-generated (finalize phase) — human table of contents
 │
-├── .internal/                 ← skill artifacts: plan, verification, traces, Notion mapping (COMMITTED to git)
+├── .internal/                 ← skill artifacts: plan, verification, traces (COMMITTED to git)
 │   ├── plan.yaml              ← coordination spec
 │   ├── verification/          ← per-page verifier reports + _failures.md
-│   ├── notion-sync.yaml       ← disk↔Notion mapping (a cache)
 │   └── trace/decisions.md     ← per-run decisions log
 │
 ├── AGENTS/                        ← agents track (ALWAYS ON) — agent-optimized, standalone-complete
@@ -49,7 +48,7 @@ wiki/
 └── PRODUCT/                   ← product track (on when the project has a product surface) — feature-scoped
 ```
 
-Only enabled tracks exist on disk — routing, publishing, and `wiki/index.md` list only tracks present. `wiki/.internal/` **is committed to git** (it is the coordination + mapping state, not a scratch cache). The folder is really `wiki-{project}/` — its own git repo, unique per project, sitting in the workspace beside the code repos (`wiki/` above is shorthand for it; commands resolve the real folder by its `.internal/plan.yaml` marker).
+Only enabled tracks exist on disk — routing and `wiki/index.md` list only tracks present. `wiki/.internal/` **is committed to git** (it is the coordination state, not a scratch cache). The folder is really `wiki-{project}/` — its own git repo, unique per project, sitting in the workspace beside the code repos (`wiki/` above is shorthand for it; commands resolve the real folder by its `.internal/plan.yaml` marker).
 
 | Surface | Produced by | Verified? | Mutability |
 | --- | --- | --- | --- |
@@ -99,16 +98,15 @@ A recheck does not re-plan unless `plan.yaml` is missing or stale — it only ru
 
 ## Commands
 
-Four commands. Ground truth for verification is always the **source code**.
+Three commands. Ground truth for verification is always the **source code**.
 
 | Command | What it does |
 | --- | --- |
 | `/wiki-system init` | Bootstrap the local wiki from scratch: scan → plan → stub → write → verify → finalize. |
 | `/wiki-system recheck` | Audit the local wiki against current code: coverage-gap scan, verify-first, regenerate drift. Does not re-plan. |
 | `/wiki-system claude` | Create/update a lean (≤200-line) `CLAUDE.md` routing agents at `wiki/AGENTS`. The only command that writes it. |
-| `/wiki-system notion sync [<url>]` | Publish the `PRODUCT` track to Notion, in place — first time *and* every update (one verb). No mapping: create the mirror under the supplied root page + write the mapping. Mapping present: idempotent push of changed pages (no duplicates). Needs the Notion MCP. |
 
-Mental model: `init`/`recheck` create and audit the local wiki; `claude` regenerates `CLAUDE.md`; `notion sync` publishes the `PRODUCT` track to Notion (first publish + updates).
+Mental model: `init`/`recheck` create and audit the local wiki; `claude` regenerates `CLAUDE.md`.
 
 ---
 
@@ -121,12 +119,11 @@ Each is project-agnostic; per-project configuration lives in `init.md`'s CONFIGU
 | `init.md` | Bootstrap orchestrator: scans, plans, dispatches writers and verifiers, finalizes. |
 | `recheck.md` | Recheck orchestrator: audits the existing wiki against source. |
 | `claude-md.md` | `CLAUDE.md` orchestrator (`claude`). |
-| `notion.md` | Notion publish orchestrator (`notion sync` — push the `PRODUCT` track from an existing local `wiki/`). |
 | `specialists/agents.md` | agents-track writer (always-on track) — agent-optimized, code-grounded: self-contained, atomic source-anchored claims, invariants + contracts + runbooks + flow map + concise per-area reference + a machine index. |
 | `specialists/technical.md` | Technical writer — reference pages with file paths, function names, line citations. |
 | `specialists/product.md` | Product writer — flows and business rules in plain language, zero code references. |
 | `specialists/verifier.md` | Verifier — reads a draft + its scope files, emits a per-claim YAML report. Read-only. Modes: `agents` / `technical` / `product`. |
-| `spec/plan-schema.md`, `spec/notion-sync-schema.md` | Schema references for the two `.internal` YAML artifacts. |
+| `spec/plan-schema.md` | Schema reference for `wiki/.internal/plan.yaml`. |
 
 **Why writer and verifier are split.** A writer self-checking is an unreliable check — its incentive is to ship. A separate verifier prompt confronts the prose with source. The independence is prompt-level, not model-level (usually the same underlying model), so the real safeguard is re-reading the source; the prompt split is a secondary one.
 
@@ -158,23 +155,6 @@ Honest calibration matters: inflated severity blocks legitimate updates; deflate
 
 ---
 
-## Notion publishing
-
-Publishing (`notion sync`) is a one-directional push — local `wiki/` is the source of truth, Notion is a render target — driven entirely through the **Notion MCP** (no integration token). Only the `PRODUCT` track is published; `AGENTS` and `TECHNICAL` stay in git. The mirror lives under a single root page:
-
-```
-[root page]   body = wiki/PRODUCT/index.md
- └── mirrors the wiki/PRODUCT/ tree
-```
-
-- A `wiki/PRODUCT/` folder with an `index.md` becomes a page with children; a standalone `.md` becomes a childless page. Icons go only on pages that have children.
-- **Two-pass** so cross-links resolve: pass 1 creates pages to learn their Notion ids; pass 2 rewrites relative markdown links into Notion page links.
-- **Idempotent and resumable** via the mapping in `wiki/.internal/notion-sync.yaml` (root id + `path → Notion id → content hash`). With no source changes, a re-run performs zero writes.
-- **No silent destruction.** A page whose source vanished is surfaced as an orphan for the user to resolve — never auto-archived.
-- It does **not** publish the `AGENTS`/`TECHNICAL` tracks or anything under `wiki/.internal/`.
-
----
-
 ## Failure modes
 
 | Failure mode | Mitigation |
@@ -184,7 +164,6 @@ Publishing (`notion sync`) is a one-directional push — local `wiki/` is the so
 | `fail_hard` accumulating silently | Eliminated by design: the run does not complete until every `fail_hard` page from this run has a recorded resolution (regen / patch / shrink / accept / delete / defer). `defer` is an explicit dated choice surfaced again on the next run, not a silent skip. |
 | Regen produces only rephrasing | Verify-first skips pages that didn't change. If unchanged pages keep getting rewritten, tighten `state: unchanged`. |
 | Prompt drift after a model release | Version the prompts (`VERSION`); force a full `init` and review on a version bump. |
-| Notion direct edits | Overwritten on the next `notion sync`. |
 | Cost runaway on a large recheck | Verify-first keeps it down; `verify_breadth: by_complexity` bounds it further. |
 
 The principle: **observable rot beats silent rot.** The system makes problems visible rather than pretending they can't happen.
@@ -197,7 +176,6 @@ The principle: **observable rot beats silent rot.** The system makes problems vi
 2. Set up the **workspace**: a folder with the project's code repos cloned as siblings. The skill discovers and confirms the repos at `init` — no config file to edit.
 3. Run `/wiki-system init` once (it creates the `wiki-{project}/` docs repo and records the repo set), then `/wiki-system claude` to generate your `CLAUDE.md`.
 4. Wrap any permanent hand-edits in `<!-- AUTOREGEN_SKIP_BEGIN/END -->` so future runs preserve them.
-5. To publish the `PRODUCT` track: connect the Notion MCP, then run `/wiki-system notion sync <root-url>` (first time — pass the root page URL); later edits are just `/wiki-system notion sync`.
 
 The `wiki-{project}/` folder is **its own git repo** (all of it, including `.internal/`, committed there) — the one shared artifact; `CLAUDE.md`, `.claude/`, and `.mcp.json` are individual per dev and not committed. A developer who lacks some repos can still `recheck` the parts they have — **absent repos are skipped and their pages kept as source of truth** (partial access). Re-run `/wiki-system recheck` periodically to keep the wiki aligned with the code.
 
@@ -213,9 +191,8 @@ The `wiki-{project}/` folder is **its own git repo** (all of it, including `.int
 | `init.md` | Bootstrap orchestrator. |
 | `recheck.md` | Recheck orchestrator. |
 | `claude-md.md` | `CLAUDE.md` orchestrator (`claude`). |
-| `notion.md` | Notion publish orchestrator (`notion sync`). |
+| `check-update.sh` | Mechanical self-update check run by pre-flight step 0. |
 | `specialists/agents.md`, `technical.md`, `product.md`, `verifier.md` | Writer (one per track) and verifier sub-agent prompts. |
 | `spec/plan-schema.md` | Schema for `wiki/.internal/plan.yaml`. |
-| `spec/notion-sync-schema.md` | Schema for `wiki/.internal/notion-sync.yaml`. |
 
 The per-project artifacts (`wiki/`, `wiki/.internal/*`) are documented at their point of use in the orchestrator prompts.

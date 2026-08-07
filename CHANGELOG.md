@@ -9,7 +9,21 @@ Introduced at v10; earlier versions are not chronicled here (see git history).
 
 ## v11 — 2026-08-07
 
-**User-owned docs-root content is explicitly out of bounds.**
+**User-owned docs-root content is explicitly out of bounds; Notion publishing removed.**
+
+- **BREAKING: Notion support dropped entirely.** `notion.md` and
+  `spec/notion-sync-schema.md` deleted; the `notion sync` command (Mode 3) and
+  every Notion reference removed from `SKILL.md`, `README.md`, `init.md`,
+  `claude-md.md`, and the three writer specialists. The skill now has three
+  commands (`init`, `recheck`, `claude`) and produces only the local `wiki/`
+  tree — it publishes nowhere external. The former Mode 4 (`claude`) is now
+  Mode 3. An existing `wiki/.internal/notion-sync.yaml` in a project is inert
+  and can be deleted by its owner. Requests naming Notion get a brief "removed
+  in v11" explanation instead of routing.
+- `spec/comment-standard.moved.md` deleted. It was a tombstone pointing at an
+  `eng-rulebook` skill that is not part of this repo and does not exist in most
+  workspaces; nothing in the live prompts referenced it (the standard's content
+  left this repo at v9).
 
 - The docs root may contain user-created files and folders the skill did not
   generate — task workspaces (`tasks/`, `notes/`), audit/research folders, a

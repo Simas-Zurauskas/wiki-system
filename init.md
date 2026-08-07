@@ -34,7 +34,7 @@ At the start of Phase 1, scan immediate subdirectories of CWD and treat as candi
 
 Exclude these directories even if they match: `node_modules/`, `.git/`, `dist/`, `build/`, `target/`, any `wiki-*/` (the docs folder), `.claude/`, `.agents/`, `_resources/`, anything starting with `.`, and any directory that obviously holds tooling or vendored automation rather than product code (read its README to decide if unsure).
 
-After discovery, **present the candidate list to the user and confirm before proceeding** (the user may also name the repos explicitly at invocation, e.g. `/wiki-system init repo-a repo-c`). Do not silently document directories the user did not intend. **Record the confirmed repo set** — their folder names — in `wiki/.internal/plan.yaml`'s `meta.repos`. This is the project's canonical repo list; `recheck`/`claude`/`notion sync` read it to know the full set and to skip/warn when a repo is absent from the workspace (partial access, below). Repos are matched to workspace folders **by folder name**, so each repo must be cloned under the name recorded here.
+After discovery, **present the candidate list to the user and confirm before proceeding** (the user may also name the repos explicitly at invocation, e.g. `/wiki-system init repo-a repo-c`). Do not silently document directories the user did not intend. **Record the confirmed repo set** — their folder names — in `wiki/.internal/plan.yaml`'s `meta.repos`. This is the project's canonical repo list; `recheck`/`claude` read it to know the full set and to skip/warn when a repo is absent from the workspace (partial access, below). Repos are matched to workspace folders **by folder name**, so each repo must be cloned under the name recorded here.
 
 For each confirmed repo, also capture its **remote provenance** (orchestrator-run, no sub-agent): `git -C <repo> remote get-url origin` → `meta.repos[].git_url` (record `null` if the command fails or there is no remote — never guess a URL), and the default branch if cheaply determinable (`git -C <repo> symbolic-ref refs/remotes/origin/HEAD` → `meta.repos[].default_branch`, else omit). These fields feed the repo manifest written into each enabled code-anchored track index (`wiki/AGENTS/index.md`; `wiki/TECHNICAL/index.md` when enabled — never PRODUCT) at finalize (Phase 3e step 2) — the mapping from the wiki's `<repo>/<path>` code anchors to real git repositories.
 
@@ -51,7 +51,7 @@ The wiki has up to **three** writer tracks (see `specialists/agents.md`, `specia
 | Signal from the Phase-1 scan | Suggested adjustment |
 | --- | --- |
 | Code repo(s) present and a developer audience will browse docs | suggest adding `technical` |
-| Library / CLI / infra repo with **no** end-user product surface | keep the `agents`-only default — then `notion sync` has nothing to publish, and that's fine |
+| Library / CLI / infra repo with **no** end-user product surface | keep the `agents`-only default — there is no product surface to document |
 | A user-facing app / clear product feature surface | suggest adding `product` |
 
 **Read invocation phrasing carefully.** Phrases like "wiki for api and client" or "document these two repos" name the **source repositories**, not the output tracks. Do NOT infer the track set from how many repos were named — and do NOT promote a heavier set just because the project's `CLAUDE.md` or existing docs happen to reference all three track index pages. An existing reference is not a request: the `agents`-only default stands until the user explicitly opts into more.
@@ -64,7 +64,7 @@ Record the chosen set in `wiki/.internal/plan.yaml`'s `meta.tracks` (e.g. `meta.
 
 ### Output Directory
 
-The docs go in a **per-project docs folder `wiki-{project}/`** created in CWD (the workspace) — it is its own git repo. `{project}` is a short slug: derive a sensible default from the workspace folder name or the primary repo, then **present it and let the user confirm or rename** (e.g. `wiki-acme`). The folder name MUST start with `wiki-` — that prefix plus the `.internal/plan.yaml` marker is how `recheck`/`claude`/`notion sync` later find the docs root. Record the chosen name in `meta` (e.g. `meta.wiki_dir: wiki-acme`).
+The docs go in a **per-project docs folder `wiki-{project}/`** created in CWD (the workspace) — it is its own git repo. `{project}` is a short slug: derive a sensible default from the workspace folder name or the primary repo, then **present it and let the user confirm or rename** (e.g. `wiki-acme`). The folder name MUST start with `wiki-` — that prefix plus the `.internal/plan.yaml` marker is how `recheck`/`claude` later find the docs root. Record the chosen name in `meta` (e.g. `meta.wiki_dir: wiki-acme`).
 
 **Everywhere this prompt says `wiki/`, it means this `wiki-{project}/` folder.** On a forced re-run where a `wiki-*` docs folder already exists, reuse it — never create a second.
 
@@ -876,9 +876,8 @@ index of **each enabled code-anchored track**:
 - `wiki/TECHNICAL/index.md` — when the technical track is enabled
 
 The **PRODUCT track never gets one** — product pages must contain zero code
-references (`specialists/product.md`), and the track is published to Notion for
-non-technical readers; git URLs and SHAs there would violate the track's own
-invariant. Track writers never author or edit the section (see
+references (`specialists/product.md`) and are written for non-technical
+readers; git URLs and SHAs there would violate the track's own invariant. Track writers never author or edit the section (see
 `specialists/agents.md` § the machine index and `specialists/technical.md` § the
 track index). A track is the unit of standalone consumption, so each index
 carries its own copy rather than pointing at a sibling track; the copies cannot

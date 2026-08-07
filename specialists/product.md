@@ -427,7 +427,7 @@ Not every page needs every section — omit sections that would be empty or forc
 ## WRITING STANDARDS
 
 - **Page titles (the first `# H1`) are short, bare names.** The H1 becomes the
-  page/sidebar title in the wiki tree and the Notion mirror — make it the plain
+  page/sidebar title in the wiki tree — make it the plain
   area/page name (`# Product`, `# Video Generation`, `# Admin Tool`, `# Scene Authoring`),
   never prefixed with the product name (`elf-watch — …`) or suffixed with structural meta
   (`— index`, `Overview`). Put descriptive context in the opening line, not the heading —
