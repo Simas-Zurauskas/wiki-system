@@ -59,7 +59,7 @@ requires it (e.g., following a function call into a file the writer already
 cited). You may not expand scope to re-scan the project.
 
 The verifier never runs on files outside the `wiki/` track folders
-(`wiki/AGENTS`, `wiki/TECHNICAL`, `wiki/PRODUCT`). The root `wiki/index.md` is
+(`wiki/AGENTS`, `wiki/TECHNICAL`, `wiki/PRODUCT`). The root `wiki/README.md` is
 out of scope for verification (orchestrator-generated).
 
 **Hand-edit zones.** If the draft contains `<!-- AUTOREGEN_SKIP_BEGIN -->` and

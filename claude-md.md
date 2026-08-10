@@ -61,7 +61,7 @@ exact behavior this command exists to remove.
    resolved folder, and CLAUDE.md links to it by its real name. If several exist, ask which
    project; if none exists, there's no wiki yet (see the "no wiki" note in C2).
 3. Note whether `CLAUDE.md` exists at the workspace root → **update** vs **create**.
-4. Note whether the wiki exists (`wiki/index.md` and/or `wiki/.internal/plan.yaml`).
+4. Note whether the wiki exists (`wiki/README.md` — `wiki/index.md` in pre-v12 wikis — and/or `wiki/.internal/plan.yaml`).
    This decides how you gather facts in C1.
 
 ## PHASE C1: GATHER FACTS (cheapest source first — do NOT do a full init-style scan)
@@ -74,7 +74,7 @@ sufficient source. Stop as soon as you have enough to fill the C2 sections.
    `<!-- AUTOREGEN_SKIP_BEGIN -->…<!-- AUTOREGEN_SKIP_END -->` block is the **one
    human-owned zone** — carry it through **verbatim**, byte-for-byte, and never
    rewrite, reflow, or relocate its contents.
-2. **The wiki, if present** — `wiki/index.md` (product description, layout,
+2. **The wiki, if present** — `wiki/README.md` (product description, layout,
    architecture) and `wiki/.internal/plan.yaml` (`meta` block: repos, tracks, product
    description). This is already-synthesized, authoritative project knowledge — prefer
    it over re-deriving from source. When reading any generated `wiki/*.md` page for
@@ -118,7 +118,7 @@ All project documentation lives in `wiki/` and is the authoritative reference.
 do not read the whole tree at once.
 
 Other entry points:
-- <link to wiki/index.md> — human table of contents and system entry point
+- <link to wiki/README.md> — human table of contents and system entry point
 
 **Maintenance policy — on request only.** The wiki and this file are refreshed
 *only* when explicitly asked, by running the `wiki-system` skill. Do **not** edit
@@ -153,7 +153,7 @@ the wiki has not been generated (suggest `/wiki-system init`) instead of linking
   the wiki; keep `CLAUDE.md` count-free.
 - **No deep feature descriptions** — that is what the `wiki/` tracks are for. `CLAUDE.md`
   points; the wiki explains.
-- **No restating `wiki/index.md`** — pointer + link only.
+- **No restating `wiki/README.md`** — pointer + link only.
 - **No documentation writing-standards / quality-bar / page-structure essays** — those
   belong in this skill, not in every project's `CLAUDE.md`.
 - **No "update docs when you change code" guidance** — see § PHILOSOPHY.

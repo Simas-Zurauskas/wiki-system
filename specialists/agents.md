@@ -342,7 +342,7 @@ phrasing; deprecated content is labelled, not deleted silently.
 ## CONSTRAINTS
 
 - Writers produce files **only under `wiki/AGENTS`**. Never modify the wiki root
-  (`wiki/index.md`) — it is out of scope.
+  (`wiki/README.md`) — it is out of scope.
 - Preserve content between `<!-- AUTOREGEN_SKIP_BEGIN -->` and `<!-- AUTOREGEN_SKIP_END -->`
   markers verbatim.
 - **Link, don't restate.** Point at the technical track (when present) and at machine

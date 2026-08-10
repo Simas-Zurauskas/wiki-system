@@ -158,7 +158,7 @@ Field order is free. Every listed field is required unless marked optional.
   keep it stable across runs so verification report filenames don't churn).
 - **section** — the id of the section this page belongs to. Every page
   belongs to exactly one section. The orchestrator-generated root file
-  (`wiki/index.md`) is not part of the plan; it has no `section` because it
+  (`wiki/README.md`) is not part of the plan; it has no `section` because it
   is not in `pages[]` at all.
 - **scope_files** — list of file paths or globs in the source repo that
   this page documents. The writer reads these; the verifier verifies

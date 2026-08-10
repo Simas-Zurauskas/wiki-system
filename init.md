@@ -208,9 +208,11 @@ Check if the output directory (`wiki/`) already exists. If it does:
   unwritten* pages from *stale* ones.
 - Read every `.md` file under the **generated surfaces only**: the track folders
   (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/` — those present),
-  `wiki/index.md`, and the root signposts (`wiki/AGENTS.md`, `wiki/CLAUDE.md`).
-  Everything else at the docs root — a hand-written `README.md`, task
-  workspaces, audit/research folders, anything the skill did not generate — is
+  `wiki/README.md` (the generated front door — a pre-v12 wiki has `wiki/index.md`
+  instead; treat that as the same generated surface, migrated in Phase 3e), and
+  the root signposts (`wiki/AGENTS.md`, `wiki/CLAUDE.md`).
+  Everything else at the docs root — task workspaces, audit/research folders,
+  anything the skill did not generate — is
   user territory (`SKILL.md` § What this skill does NOT do): do not read it
   into the classification, do not flag it as stale or structurally problematic,
   and never delete or restructure it, no matter how outdated it looks.
@@ -251,7 +253,7 @@ A YAML plan makes the downstream pipeline deterministic:
 The wiki is fully auto-generated: writers produce every track page under the
 enabled track folders (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
 
-The wiki root file `wiki/index.md` is produced by
+The wiki root file `wiki/README.md` is produced by
 the **orchestrator's finalize phase** (Phase 3e), not by writers. It is
 synthesized from the on-disk reference tree after all writers and verifiers
 finish. Users can override by wrapping content in `<!-- AUTOREGEN_SKIP_BEGIN -->`
@@ -269,7 +271,7 @@ wiki/
 │   │   └── _failures.md       ← structured entries (YAML frontmatter + prose) for fail_hard verdicts and their user-recorded resolutions; see spec/plan-schema.md § _failures.md SCHEMA
 │   └── trace/                 ← per-run decisions log + JSONL traces
 │       └── decisions.md
-├── index.md                   ← orchestrator-generated in Phase 3e (finalize)
+├── README.md                  ← orchestrator-generated in Phase 3e (finalize) — human front door; renders on GitHub
 │
 ├── AGENTS/                        ← agents track (ALWAYS ON) — agent-optimized, standalone-complete
 │   ├── index.md               ← navigable machine index (the "front door")
@@ -300,7 +302,7 @@ The split between writer scope and orchestrator scope:
 
 | File / folder              | Produced by                                      |
 | -------------------------- | ------------------------------------------------ |
-| `wiki/index.md`         | Orchestrator (Phase 3e finalize)                 |
+| `wiki/README.md`        | Orchestrator (Phase 3e finalize)                 |
 | `wiki/{AGENTS,TECHNICAL,PRODUCT}/**/*.md` | agents / technical / product writer (Phase 3b/3c)    |
 | `CLAUDE.md`                | **Not written by init.** Owned by the `/wiki-system claude` command (`claude-md.md`); init only suggests running it. |
 
@@ -376,7 +378,7 @@ Record `scope_loc_estimate` for every section and page. If a section exceeds
   under `wiki/TECHNICAL/`.
 - Product sections are **feature-scoped** and live under `wiki/PRODUCT/`.
   Organized by product area, not by code.
-- `wiki/index.md` is produced by the orchestrator's
+- `wiki/README.md` is produced by the orchestrator's
   finalize phase (3e), not by writers. It is never planned as a `pages[]`
   entry in `wiki/.internal/plan.yaml` because it is derived from the rest of
   the wiki, not from `scope_files`. The writer-produced track overviews
@@ -478,7 +480,7 @@ Execute in six ordered sub-phases (3d.5 fires only when Phase 3d produced queued
    queued any `fail_hard` pages, halt for batched user resolution (regen /
    patch / shrink / accept / delete / defer) before finalizing. Skipped
    when the queue is empty.
-6. **3e — Finalize** (sequential): generate `wiki/index.md`,
+6. **3e — Finalize** (sequential): generate `wiki/README.md`,
    run deterministic checks, then **suggest `/wiki-system
    claude`** (init does not write `CLAUDE.md`). The root
    file is produced from the now-complete reference tree — the
@@ -764,7 +766,7 @@ checks inside it. Future runs will NOT re-flag accepted blocks.
 **`delete_page` is a structural change.** A `delete_page` resolution must
 force Phase 3e finalize to run even under the no-changes shortcut. Record
 this in the run's structural-changes ledger so R5.2 (in recheck) does not
-skip root-artifact regeneration. `index.md` is
+skip root-artifact regeneration. `README.md` is
 regenerated from the now-current track folders under `wiki/`, which naturally
 drops any link to the deleted page.
 
@@ -829,14 +831,15 @@ not as a separate process or queue.
 
 ### Phase 3e — Finalize (after Phase 3d, and Phase 3d.5 if it ran)
 
-**1. Generate `wiki/index.md`** — the human table of contents
+**1. Generate `wiki/README.md`** — the human front door / table of contents
 
 Synthesize the wiki's entry point from the now-complete reference tree.
-`wiki/index.md` is the human table of contents; it lists ONLY enabled tracks
+`wiki/README.md` is the human table of contents and the file a repo host
+(GitHub etc.) renders at the docs-repo root; it lists ONLY enabled tracks
 (a track with no folder on disk is never mentioned), and it never mentions
-user-owned docs-root folders or files (task workspaces, audit/research folders,
-`README.md`) — the content list below is **exhaustive**; a user pointer belongs
-in the user-owned `README.md` or inside an `AUTOREGEN_SKIP` block here. Its
+user-owned docs-root folders or files (task workspaces, audit/research
+folders) — the content list below is **exhaustive**; a user pointer belongs
+inside an `AUTOREGEN_SKIP` block here. Its
 FIRST line is the generated-header (verbatim):
 
 ```
@@ -857,11 +860,26 @@ Read `wiki/.internal/plan.yaml` and the on-disk track folders under `wiki/`
   and `wiki/TECHNICAL/` / `wiki/PRODUCT/` if enabled)
 - Quick reference table: build/run/test commands per repo (from CONFIGURATION)
 
-If the existing `wiki/index.md` contains content between
+If the existing `wiki/README.md` contains content between
 `<!-- AUTOREGEN_SKIP_BEGIN -->` and `<!-- AUTOREGEN_SKIP_END -->` markers,
 preserve those blocks verbatim — only the auto-generated sections are
 rewritten. If the file is entirely wrapped in skip markers, leave it
 untouched (the project has opted out of auto-generation for this file).
+
+**Migration — wikis generated before v12.** Pre-v12 wikis used a docs-root
+`index.md` as the front door and treated `README.md` as user territory. On the
+first v12+ run against such a wiki:
+
+- If `wiki/index.md` exists and no `wiki/README.md` does: write `README.md`
+  per this step (carrying over any `AUTOREGEN_SKIP` blocks from `index.md`
+  verbatim), delete `wiki/index.md`, and let step 2 refresh the `AGENTS.md`
+  signpost's "humans start at" line.
+- If a `wiki/README.md` already exists whose first line is NOT the
+  generated-header, it is a hand-written user file — do NOT overwrite it
+  silently. Halt and ask the user; the default suggestion is to wrap their
+  content in an `AUTOREGEN_SKIP` block inside the newly generated `README.md`
+  (they may instead keep their file untouched, in which case wrap it entirely
+  in skip markers so future runs leave it alone).
 
 **2. Write the repo manifest + root agent signposts (orchestrator-owned)**
 
@@ -928,7 +946,7 @@ wholesale on every `init`/`recheck` run (same cadence as the manifest):
   [AGENTS/index.md](AGENTS/index.md)"** (load pages on demand, not
   cover-to-cover); read `AGENTS/invariants.md` before proposing code changes;
   resolve `<repo>/<path>:<line>` anchors via the `## Repositories` manifest in
-  `AGENTS/index.md`; humans start at `index.md`. Close with a one-line
+  `AGENTS/index.md`; humans start at `README.md`. Close with a one-line
   generated-by comment. This content list is **exhaustive** — add nothing else:
   no mentions of user-owned docs-root folders, no extra guidance lines. The
   file has no `AUTOREGEN_SKIP` mechanism, so anything freelanced into it is
@@ -947,14 +965,14 @@ written here.
 Run four deterministic checks:
 
 - **Link graph.** Walk every `.md` under the **generated surfaces only** — the
-  enabled track folders, `wiki/index.md`, and the root signposts
+  enabled track folders, `wiki/README.md`, and the root signposts
   (`wiki/AGENTS.md`, `wiki/CLAUDE.md`) — parse markdown links, assert each
   relative target resolves to an existing file. Report broken links; fix. Never
   walk, report on, or "fix" files in user-owned docs-root folders (task
-  workspaces, audit/research folders, a hand-written `README.md` — anything the
+  workspaces, audit/research folders — anything the
   skill did not generate). State this scope in `wiki/.internal/link-report.md`.
 - **Orphan check.** Every generated page must link to at least one other page AND
-  be linked from at least one other page. Exempt: `wiki/index.md` (the root
+  be linked from at least one other page. Exempt: `wiki/README.md` (the root
   entry point) and the root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md` (found
   by filename convention, legitimately inbound-linkless). User-owned files are
   outside the walk and never flagged. Flag orphans; add links.
@@ -1246,11 +1264,11 @@ results come from Phase 3d's verifier sub-agents.
       is a planning bug: halt before stub-out and re-plan. Confirm e.g.
       `grep -c "owner_agent: agents" wiki/.internal/plan.yaml` ≥ 1 when `agents` is enabled.
 - [ ] **Link graph.** Every relative link in every `.md` under the **generated
-      surfaces** (enabled track folders + `wiki/index.md` + the root signposts —
+      surfaces** (enabled track folders + `wiki/README.md` + the root signposts —
       never user-owned docs-root folders or files; scope defined in Phase 3e
       step 3) resolves to an existing target. Report in
       `wiki/.internal/link-report.md`, stating the scope.
-- [ ] **Orphan check.** Every generated page (except `wiki/index.md` and the
+- [ ] **Orphan check.** Every generated page (except `wiki/README.md` and the
       root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md`) is both outbound-linked
       and inbound-linked at least once. User-owned docs-root files are outside
       the walk and never flagged.
@@ -1302,7 +1320,7 @@ results come from Phase 3d's verifier sub-agents.
 - [ ] **Technical grounding.** Technical docs reference specific files,
       functions, and code patterns. Counts and thresholds are source-verified
       (the verifier confirms this in Phase 3d).
-- [ ] **Root artifacts.** `wiki/index.md` was generated (or refreshed) by
+- [ ] **Root artifacts.** `wiki/README.md` was generated (or refreshed) by
       Phase 3e finalize. It exists, opens with the generated-header, and links to
       every enabled top-level track folder under `wiki/`. (`CLAUDE.md` is **not** part of
       init — suggest `/wiki-system claude` to (re)generate it.)
@@ -1315,7 +1333,7 @@ results come from Phase 3d's verifier sub-agents.
 - The orchestrator plans, stubs, writes, and verifies pages **only under the
   enabled track folders** (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/`).
 - In the finalize phase (3e), the orchestrator additionally produces
-  `wiki/index.md` from the completed reference tree.
+  `wiki/README.md` from the completed reference tree.
   (It does **not** write `CLAUDE.md` — that is the `/wiki-system claude`
   command.) This is NOT a writer
   page and does not appear in `wiki/.internal/plan.yaml`. The root file honors the

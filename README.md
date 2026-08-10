@@ -29,7 +29,7 @@ It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Dura
 
 ```
 wiki/
-├── index.md                ← orchestrator-generated (finalize phase) — human table of contents
+├── README.md               ← orchestrator-generated (finalize phase) — human front door; renders on GitHub
 │
 ├── .internal/                 ← skill artifacts: plan, verification, traces (COMMITTED to git)
 │   ├── plan.yaml              ← coordination spec
@@ -48,15 +48,15 @@ wiki/
 └── PRODUCT/                   ← product track (on when the project has a product surface) — feature-scoped
 ```
 
-Only enabled tracks exist on disk — routing and `wiki/index.md` list only tracks present. `wiki/.internal/` **is committed to git** (it is the coordination state, not a scratch cache). The folder is really `wiki-{project}/` — its own git repo, unique per project, sitting in the workspace beside the code repos (`wiki/` above is shorthand for it; commands resolve the real folder by its `.internal/plan.yaml` marker).
+Only enabled tracks exist on disk — routing and `wiki/README.md` list only tracks present. `wiki/.internal/` **is committed to git** (it is the coordination state, not a scratch cache). The folder is really `wiki-{project}/` — its own git repo, unique per project, sitting in the workspace beside the code repos (`wiki/` above is shorthand for it; commands resolve the real folder by its `.internal/plan.yaml` marker).
 
 | Surface | Produced by | Verified? | Mutability |
 | --- | --- | --- | --- |
-| `wiki/index.md` | Orchestrator (finalize) | No | Auto-rewritten; hand-edit zones survive |
+| `wiki/README.md` | Orchestrator (finalize) | No | Auto-rewritten; hand-edit zones survive |
 | `wiki/{AGENTS,TECHNICAL,PRODUCT}/**` | agents / technical / product writer | Yes (claim-by-claim) | Auto-rewritten; hand-edit zones survive |
 | `CLAUDE.md` | `claude` mode only | No | Individual per dev, **not committed**; machine-generated + preserved `AUTOREGEN_SKIP` human zone |
 
-`wiki/index.md` is derived in the finalize phase from the completed reference tree — it is not a writer page and does not appear in `plan.yaml`. `CLAUDE.md` is written **only** by the `claude` mode; `init`/`recheck` just suggest running it. Hand-edit zones (`<!-- AUTOREGEN_SKIP_BEGIN/END -->`) let projects keep hand-written sections through re-runs.
+`wiki/README.md` is derived in the finalize phase from the completed reference tree — it is not a writer page and does not appear in `plan.yaml`. (Wikis generated before v12 used a docs-root `index.md`; the first v12+ run migrates it.) `CLAUDE.md` is written **only** by the `claude` mode; `init`/`recheck` just suggest running it. Hand-edit zones (`<!-- AUTOREGEN_SKIP_BEGIN/END -->`) let projects keep hand-written sections through re-runs.
 
 ---
 
@@ -90,7 +90,7 @@ A full generation (`init`, or a forced full rebuild) runs up to six sub-phases (
 | 3b–c. Write | Dispatch writer sub-agents in parallel, one per section. |
 | 3d. Verify | Dispatch verifier sub-agents in parallel. Auto-fix `fail_soft`; escalate via tier-2 strong verifier; queue surviving `fail_hard` pages for the user gate. |
 | 3d.5. User gate | If any pages reached `fail_hard`, halt for a batched user-resolution checkpoint (regen / patch / shrink / accept / delete / defer). Skipped if the queue is empty. |
-| 3e. Finalize | Generate `index.md`; run link / parity / numeric-consistency checks. Preserve hand-edit zones. |
+| 3e. Finalize | Generate `README.md`; run link / parity / numeric-consistency checks. Preserve hand-edit zones. |
 
 A recheck does not re-plan unless `plan.yaml` is missing or stale — it only runs the steps that apply to drifted or failing pages.
 
@@ -139,7 +139,7 @@ Each is project-agnostic; per-project configuration lives in `init.md`'s CONFIGU
 - **Source-aware re-runs.** `plan.yaml` records each page's `scope_files`. A `git diff` scoped to those paths marks unchanged pages `state: unchanged` and skips them — a frontend-only change never re-touches the API pages.
 - **Numeric-consistency gate.** After writes, every "`<number> <noun>`" pair is surfaced across the wiki and mismatches flagged (one page says "33 endpoints," its sibling says "32"). Writers reconcile by re-counting from source.
 - **Hand-edit zones.** `<!-- AUTOREGEN_SKIP_BEGIN/END -->` markers fence hand-written content that writers preserve verbatim and verifiers ignore. Opt-in and rarely needed.
-- **Generated-header on every page.** Every generated `wiki/*.md` (including `wiki/index.md`) opens with a one-line header marking it machine-generated and pointing at `recheck`. Writers and the finalize/regen phases emit it; the verifier ignores it (it is not a claim, so it is never counted or flagged) — the same treatment as an `AUTOREGEN_SKIP` block.
+- **Generated-header on every page.** Every generated `wiki/*.md` (including `wiki/README.md`) opens with a one-line header marking it machine-generated and pointing at `recheck`. Writers and the finalize/regen phases emit it; the verifier ignores it (it is not a claim, so it is never counted or flagged) — the same treatment as an `AUTOREGEN_SKIP` block.
 
 ### Verdicts
 

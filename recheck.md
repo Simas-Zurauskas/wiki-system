@@ -394,7 +394,7 @@ catching.
 
 ### R5.2 Refresh root artifacts
 
-Regenerate `wiki/index.md` from the now-current
+Regenerate `wiki/README.md` from the now-current
 reference tree per `init.md` Phase 3e. It is the human table of contents and
 lists only the enabled tracks (`wiki/AGENTS`, `wiki/TECHNICAL`, `wiki/PRODUCT` — those
 present on disk; never assume a track exists). Its first line is the
@@ -405,9 +405,18 @@ generated-header, verbatim:
 ```
 
 Hand-edit zones survive.
-Skip the `wiki/index.md` regeneration if the recheck made zero structural
+Skip the `wiki/README.md` regeneration if the recheck made zero structural
 changes (no new pages, no extended scope, no successful regens) — there is
 nothing new to surface at the root.
+
+**Pre-v12 migration is NOT covered by that skip.** If the wiki still has a
+docs-root `index.md` as its front door (generated before v12), migrate it this
+run regardless of structural changes: write `wiki/README.md` per `init.md`
+Phase 3e step 1 (carrying over any `AUTOREGEN_SKIP` blocks verbatim), delete
+`wiki/index.md`, and refresh the `AGENTS.md` signpost's "humans start at" line.
+If a hand-written user `README.md` (first line ≠ generated-header) already
+occupies the slot, do not overwrite it silently — surface the conflict per the
+migration note in `init.md` Phase 3e step 1.
 
 **The repo manifest is NOT covered by that skip — refresh it on every run.**
 Rewrite the `## Repositories` section of every enabled code-anchored track
@@ -490,7 +499,7 @@ Run these before reporting the run as complete. Subset of `init.md`
 - Files outside the enabled tracks under `wiki/` are out of scope. The recheck
   never writes to the wiki root except as Phase R5 specifies, and never reads,
   walks, or mentions user-owned docs-root files or folders (task workspaces,
-  audit/research folders, a hand-written `README.md` — anything the skill did
+  audit/research folders — anything the skill did
   not generate). This includes the R5.1 deterministic gates, which run at the
   generated-surfaces scope defined in `init.md` Phase 3e step 3 / § QUALITY
   GATES.

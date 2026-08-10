@@ -7,6 +7,35 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v12 — 2026-08-10
+
+**The docs-root front door is now `README.md`, not `index.md`.**
+
+- The orchestrator-generated human front door / table of contents at the docs
+  root is renamed `wiki/index.md` → `wiki/README.md`, so repo hosts (GitHub
+  etc.) render it automatically when the wiki repo is browsed or pushed.
+  Content spec, generated-header, `AUTOREGEN_SKIP` hand-edit zones, and the
+  exhaustive-content rule are unchanged — only the filename moved. Renamed in
+  every prompt: `SKILL.md`, `init.md` (Phase 3e step 1, tree, ownership table,
+  gates, constraints), `recheck.md` (R5.2), `claude-md.md` (C0/C1 sources +
+  the generated Documentation-section template now links `wiki/README.md`),
+  `spec/plan-schema.md`, and all four specialists (the "never touch the wiki
+  root" constraint; while there, the stale "hand-written" description of the
+  root file in `product.md`/`technical.md` was corrected to
+  "orchestrator-generated").
+- **`README.md` consequently leaves user territory.** The v11 user-territory
+  guarantee now names task workspaces and audit/research folders as examples;
+  a user pointer at the root belongs inside an `AUTOREGEN_SKIP` block in
+  `README.md`. Safeguard: a docs-root `README.md` whose first line is not the
+  generated-header is a hand-written user file — runs must not overwrite it
+  silently; the migration note has them halt and ask (default: wrap the user's
+  content in an `AUTOREGEN_SKIP` block inside the generated file).
+- **Migration for pre-v12 wikis** (`init.md` Phase 3e step 1; `recheck.md`
+  R5.2, exempt from the zero-structural-changes skip): write `README.md`
+  carrying over `AUTOREGEN_SKIP` blocks, delete the old docs-root `index.md`,
+  refresh the `AGENTS.md` signpost's "humans start at" line (now
+  `README.md`).
+
 ## v11 — 2026-08-07
 
 **User-owned docs-root content is explicitly out of bounds; Notion publishing removed.**
