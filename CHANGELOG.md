@@ -35,6 +35,13 @@ Introduced at v10; earlier versions are not chronicled here (see git history).
   carrying over `AUTOREGEN_SKIP` blocks, delete the old docs-root `index.md`,
   refresh the `AGENTS.md` signpost's "humans start at" line (now
   `README.md`).
+- **`README.md` now lists its source repositories.** Its content spec gains a
+  `## Source repositories` section — one row per `meta.repos` repo: folder
+  name, one-line purpose, `git_url` (or "no remote — local only") +
+  `default_branch`; never SHAs or dirty flags, closing instead with a pointer
+  to the `## Repositories` manifest in the AGENTS index. Recheck R5.2
+  refreshes it whenever the repo set or any `git_url`/`default_branch`
+  changes (including an R1 backfill), and creates it on a pre-v12 README.
 
 ## v11 — 2026-08-07
 

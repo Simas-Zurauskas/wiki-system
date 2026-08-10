@@ -856,6 +856,12 @@ Read `wiki/.internal/plan.yaml` and the on-disk track folders under `wiki/`
   reference). Only mention tracks that are enabled.
 - System architecture summary — how repos relate (brief; Mermaid diagram
   if helpful)
+- **Source repositories** — a clearly labeled list or table, one row per repo
+  in `meta.repos`: folder name, one-line purpose, and `git_url` (or the literal
+  words "no remote — local only" when null — never invent a URL) plus
+  `default_branch`. No SHAs or dirty flags here — those belong to the
+  `## Repositories` manifest (step 2); close the list with a pointer to that
+  manifest in the AGENTS index.
 - Links to every enabled top-level track folder under `wiki/` (`wiki/AGENTS/`,
   and `wiki/TECHNICAL/` / `wiki/PRODUCT/` if enabled)
 - Quick reference table: build/run/test commands per repo (from CONFIGURATION)

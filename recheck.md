@@ -431,6 +431,12 @@ repo keeps its existing manifest entry verbatim, annotated
 against new code but left old SHAs in the manifest would misstate what the
 docs were checked against — this step is why the manifest can be trusted.
 
+The `## Source repositories` list in `wiki/README.md` carries no SHAs, so it
+is not part of the every-run refresh — but refresh it (even under the
+zero-structural-changes skip) whenever the repo set or any
+`git_url`/`default_branch` changed, including an R1 backfill; create the
+section if a pre-v12 README lacks it.
+
 Also rewrite the root agent signposts (`wiki/AGENTS.md` + `wiki/CLAUDE.md`)
 per `init.md` Phase 3e step 2 — same every-run cadence, creating them if a
 pre-signpost wiki lacks them.
