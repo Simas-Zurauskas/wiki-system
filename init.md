@@ -209,8 +209,9 @@ Check if the output directory (`wiki/`) already exists. If it does:
 - Read every `.md` file under the **generated surfaces only**: the track folders
   (`wiki/AGENTS/`, `wiki/TECHNICAL/`, `wiki/PRODUCT/` — those present),
   `wiki/README.md` (the generated front door — a pre-v12 wiki has `wiki/index.md`
-  instead; treat that as the same generated surface, migrated in Phase 3e), and
-  the root signposts (`wiki/AGENTS.md`, `wiki/CLAUDE.md`).
+  instead; treat that as the same generated surface, migrated in Phase 3e), the
+  root signposts (`wiki/AGENTS.md`, `wiki/CLAUDE.md`), and the installed task
+  workflow prompt (`wiki/TASK-WORKFLOW-PROMPT.md`).
   Everything else at the docs root — task workspaces, audit/research folders,
   anything the skill did not generate — is
   user territory (`SKILL.md` § What this skill does NOT do): do not read it
@@ -272,6 +273,7 @@ wiki/
 │   └── trace/                 ← per-run decisions log + JSONL traces
 │       └── decisions.md
 ├── README.md                  ← orchestrator-generated in Phase 3e (finalize) — human front door; renders on GitHub
+├── TASK-WORKFLOW-PROMPT.md    ← orchestrator-installed in Phase 3e (finalize) — paste-ready prompt for larger agent tasks
 │
 ├── AGENTS/                        ← agents track (ALWAYS ON) — agent-optimized, standalone-complete
 │   ├── index.md               ← navigable machine index (the "front door")
@@ -303,6 +305,7 @@ The split between writer scope and orchestrator scope:
 | File / folder              | Produced by                                      |
 | -------------------------- | ------------------------------------------------ |
 | `wiki/README.md`        | Orchestrator (Phase 3e finalize)                 |
+| `wiki/TASK-WORKFLOW-PROMPT.md` | Orchestrator (Phase 3e finalize — installed from the skill's template, placeholder substituted) |
 | `wiki/{AGENTS,TECHNICAL,PRODUCT}/**/*.md` | agents / technical / product writer (Phase 3b/3c)    |
 | `CLAUDE.md`                | **Not written by init.** Owned by the `/wiki-system claude` command (`claude-md.md`); init only suggests running it. |
 
@@ -864,6 +867,9 @@ Read `wiki/.internal/plan.yaml` and the on-disk track folders under `wiki/`
   manifest in the AGENTS index.
 - Links to every enabled top-level track folder under `wiki/` (`wiki/AGENTS/`,
   and `wiki/TECHNICAL/` / `wiki/PRODUCT/` if enabled)
+- A one-line pointer to the installed task workflow prompt: to run a larger
+  agent task against this workspace, start from
+  [TASK-WORKFLOW-PROMPT.md](TASK-WORKFLOW-PROMPT.md)
 - Quick reference table: build/run/test commands per repo (from CONFIGURATION)
 
 If the existing `wiki/README.md` contains content between
@@ -887,7 +893,7 @@ first v12+ run against such a wiki:
   (they may instead keep their file untouched, in which case wrap it entirely
   in skip markers so future runs leave it alone).
 
-**2. Write the repo manifest + root agent signposts (orchestrator-owned)**
+**2. Write the repo manifest, root agent signposts + task workflow prompt (orchestrator-owned)**
 
 Code anchors (`<repo>/<path>:<line>`) are only resolvable by a reader who knows
 which git repository each `<repo>/` prefix names and at what commit the anchors
@@ -966,21 +972,54 @@ These are **docs-root** files inside the wiki repo — distinct from the
 exclusively by the `/wiki-system claude` command (`claude-md.md`) and is never
 written here.
 
+**Installed task workflow prompt — `wiki/TASK-WORKFLOW-PROMPT.md`.** The skill
+ships a paste-ready prompt (`TASK-WORKFLOW-PROMPT.md`, a skill file beside this
+`init.md`) that developers use to run larger agent tasks against this workspace
+(plan → adversarial review → approval → phased implement → final review), with
+per-task folders under `wiki/tasks/` — user territory the skill never touches
+(the prompt naming `tasks/` is the one sanctioned mention of user territory in
+a generated file; see `SKILL.md` § What this skill does NOT do). Install it at
+the docs root on every run:
+
+1. Read the skill file `TASK-WORKFLOW-PROMPT.md`.
+2. Replace every literal occurrence of `wiki-{workspace-name}` with the
+   resolved docs folder name (`meta.wiki_dir`, e.g. `wiki-acme`) — plain
+   string replacement, not regex.
+3. Write the result to `wiki/TASK-WORKFLOW-PROMPT.md`, prepending this
+   **install-header** as its FIRST line, verbatim (deliberately NOT the
+   standard generated-header — this file has no `AUTOREGEN_SKIP` mechanism,
+   so its header must not promise skip-block survival):
+
+   ```
+   > _Installed by wiki-system — refreshed on every init/recheck run; do not edit here. To customize it for this project, delete this line: the file becomes user-owned and the skill will never touch it again._
+   ```
+
+Replace the file wholesale on every `init`/`recheck` run — **unless** a file
+already exists at that path whose first line is NOT the install-header. Such a
+file is user-owned (a pre-existing hand-written prompt, or a project that took
+ownership by deleting the header line): leave it untouched, note the skip once
+in the run summary, and do not halt — this is a valid opted-out state, not a
+conflict to resolve. An installed (header-bearing) copy must contain zero
+remaining `wiki-{workspace-name}` occurrences.
+
 **3. Cross-link + structural verification**
 
 Run four deterministic checks:
 
 - **Link graph.** Walk every `.md` under the **generated surfaces only** — the
-  enabled track folders, `wiki/README.md`, and the root signposts
-  (`wiki/AGENTS.md`, `wiki/CLAUDE.md`) — parse markdown links, assert each
+  enabled track folders, `wiki/README.md`, the root signposts
+  (`wiki/AGENTS.md`, `wiki/CLAUDE.md`), and the installed
+  `wiki/TASK-WORKFLOW-PROMPT.md` — parse markdown links, assert each
   relative target resolves to an existing file. Report broken links; fix. Never
   walk, report on, or "fix" files in user-owned docs-root folders (task
   workspaces, audit/research folders — anything the
   skill did not generate). State this scope in `wiki/.internal/link-report.md`.
 - **Orphan check.** Every generated page must link to at least one other page AND
   be linked from at least one other page. Exempt: `wiki/README.md` (the root
-  entry point) and the root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md` (found
-  by filename convention, legitimately inbound-linkless). User-owned files are
+  entry point), the root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md` (found
+  by filename convention, legitimately inbound-linkless), and the installed
+  `wiki/TASK-WORKFLOW-PROMPT.md` (a self-contained paste-ready prompt —
+  legitimately outbound-linkless). User-owned files are
   outside the walk and never flagged. Flag orphans; add links.
 - **Parity check.** For every page with `section_parity: strict`, verify each
   sibling section contains a counterpart page. Report gaps; either add the missing
@@ -1270,12 +1309,14 @@ results come from Phase 3d's verifier sub-agents.
       is a planning bug: halt before stub-out and re-plan. Confirm e.g.
       `grep -c "owner_agent: agents" wiki/.internal/plan.yaml` ≥ 1 when `agents` is enabled.
 - [ ] **Link graph.** Every relative link in every `.md` under the **generated
-      surfaces** (enabled track folders + `wiki/README.md` + the root signposts —
+      surfaces** (enabled track folders + `wiki/README.md` + the root signposts
+      + the installed `wiki/TASK-WORKFLOW-PROMPT.md` —
       never user-owned docs-root folders or files; scope defined in Phase 3e
       step 3) resolves to an existing target. Report in
       `wiki/.internal/link-report.md`, stating the scope.
-- [ ] **Orphan check.** Every generated page (except `wiki/README.md` and the
-      root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md`) is both outbound-linked
+- [ ] **Orphan check.** Every generated page (except `wiki/README.md`, the
+      root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md`, and the installed
+      `wiki/TASK-WORKFLOW-PROMPT.md`) is both outbound-linked
       and inbound-linked at least once. User-owned docs-root files are outside
       the walk and never flagged.
 - [ ] **Product code-reference linter.** No file under `wiki/PRODUCT/`
@@ -1330,6 +1371,11 @@ results come from Phase 3d's verifier sub-agents.
       Phase 3e finalize. It exists, opens with the generated-header, and links to
       every enabled top-level track folder under `wiki/`. (`CLAUDE.md` is **not** part of
       init — suggest `/wiki-system claude` to (re)generate it.)
+- [ ] **Task workflow prompt.** `wiki/TASK-WORKFLOW-PROMPT.md` exists and
+      either opens with the install-header and contains zero remaining
+      `wiki-{workspace-name}` occurrences (installed copy), or its first line
+      is NOT the install-header (user-owned — a valid opted-out state that
+      passes this gate; Phase 3e step 2 left it untouched by design).
 
 ---
 

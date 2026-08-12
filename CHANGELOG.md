@@ -7,6 +7,41 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v13 — 2026-08-12
+
+**Every wiki now ships a task workflow prompt at its docs root.**
+
+- `init` (Phase 3e step 2) and `recheck` (R5.2) install the skill's
+  `TASK-WORKFLOW-PROMPT.md` — a paste-ready prompt developers use to run larger
+  agent tasks (plan → adversarial review → approval → phased implement with a
+  PROGRESS log → final review) — at the docs root as
+  `wiki/TASK-WORKFLOW-PROMPT.md`, with every literal `wiki-{workspace-name}`
+  placeholder replaced by the actual docs folder name (`meta.wiki_dir`).
+  Refresh cadence matches the repo manifest and root signposts: every run,
+  explicitly not covered by recheck's zero-structural-changes skip; created
+  when missing on wikis generated before v13.
+- The installed copy opens with a bespoke **install-header** (not the standard
+  generated-header — the file has no `AUTOREGEN_SKIP` mechanism, so its header
+  makes no skip-block promise). Opt-out: delete the header line and the file
+  becomes user-owned — every subsequent run leaves it untouched (noted once in
+  the run summary; a valid state, never a halt or gate failure). A pre-existing
+  hand-written file at the path is treated the same way.
+- Gates updated: the installed file joins the link-graph walk (it carries no
+  relative links), is exempt from the orphan check alongside the signposts, and
+  a new "Task workflow prompt" quality gate checks existence + header +
+  zero remaining placeholders (or the user-owned opted-out state, which
+  passes). `wiki/README.md`'s exhaustive content spec gains a one-line pointer
+  to it. Surface lists updated in `SKILL.md` (including the one sanctioned
+  mention of user-territory `tasks/` inside a generated file — directing work
+  into that folder is the prompt's purpose), `init.md`, `recheck.md`, and the
+  explainer `README.md`.
+- The task folders the prompt creates (`wiki/tasks/NNN-*/` with `PLAN.md` +
+  `PROGRESS.md`) remain **user territory** per the v11 guarantee — never
+  walked, verified, or deleted by the skill.
+- The source template itself was cleaned of Notion-paste artifacts (bogus
+  `http://PLAN.md`-style links, doubled blank lines) so installed copies are
+  valid plain markdown with no relative links.
+
 ## v12 — 2026-08-10
 
 **The docs-root front door is now `README.md`, not `index.md`.**

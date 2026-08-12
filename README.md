@@ -30,6 +30,7 @@ It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Dura
 ```
 wiki/
 ├── README.md               ← orchestrator-generated (finalize phase) — human front door; renders on GitHub
+├── TASK-WORKFLOW-PROMPT.md ← orchestrator-installed (finalize phase) — paste-ready prompt for larger agent tasks
 │
 ├── .internal/                 ← skill artifacts: plan, verification, traces (COMMITTED to git)
 │   ├── plan.yaml              ← coordination spec
@@ -53,6 +54,7 @@ Only enabled tracks exist on disk — routing and `wiki/README.md` list only tra
 | Surface | Produced by | Verified? | Mutability |
 | --- | --- | --- | --- |
 | `wiki/README.md` | Orchestrator (finalize) | No | Auto-rewritten; hand-edit zones survive |
+| `wiki/TASK-WORKFLOW-PROMPT.md` | Orchestrator (finalize — installed from the skill template, `wiki-{workspace-name}` → real folder name) | No | Replaced every run; delete its install-header line to take ownership (skill then never touches it) |
 | `wiki/{AGENTS,TECHNICAL,PRODUCT}/**` | agents / technical / product writer | Yes (claim-by-claim) | Auto-rewritten; hand-edit zones survive |
 | `CLAUDE.md` | `claude` mode only | No | Individual per dev, **not committed**; machine-generated + preserved `AUTOREGEN_SKIP` human zone |
 

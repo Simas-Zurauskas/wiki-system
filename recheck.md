@@ -441,6 +441,15 @@ Also rewrite the root agent signposts (`wiki/AGENTS.md` + `wiki/CLAUDE.md`)
 per `init.md` Phase 3e step 2 — same every-run cadence, creating them if a
 pre-signpost wiki lacks them.
 
+**The installed task workflow prompt is likewise NOT covered by that skip —
+refresh it on every run.** Reinstall `wiki/TASK-WORKFLOW-PROMPT.md` per
+`init.md` Phase 3e step 2: re-read the skill's `TASK-WORKFLOW-PROMPT.md`
+template, substitute every literal `wiki-{workspace-name}` with
+`meta.wiki_dir`, prepend the install-header, and replace the file wholesale —
+creating it when missing (wikis generated before v13). If an existing file's
+first line is NOT the install-header it is user-owned: leave it untouched and
+note the skip once in the run summary (valid opted-out state, not a failure).
+
 ### R5.3 Do NOT touch CLAUDE.md
 
 `recheck` never writes `CLAUDE.md` — it is owned by the separate `/wiki-system
