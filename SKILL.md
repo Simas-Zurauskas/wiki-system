@@ -46,12 +46,13 @@ Before picking a mode, establish the workspace and resolve the docs root.
 
 ## Invocations at a glance
 
-Three commands, all writing local artifacts (`wiki/` and `CLAUDE.md`). The verification ground truth is always the **source code** — `recheck` checks local files against code; `claude` verifies nothing.
+Three commands (`recheck` has a cheap `diff` variant), all writing local artifacts (`wiki/` and `CLAUDE.md`). The verification ground truth is always the **source code** — `recheck` checks local files against code; `claude` verifies nothing.
 
 | Command | Reads | What it does (exactly) | When to use |
 | --- | --- | --- | --- |
 | `/wiki-system init` | `init.md` | **Bootstrap the local wiki from scratch.** Scans every target repo (parallel per-repo sub-agents) → confirms the track set (`AGENTS` always on; `PRODUCT` and `TECHNICAL` opt-in) → writes `plan.yaml` → stubs pages → dispatches writers for the enabled tracks → dispatches verifiers (auto-fix `fail_soft` once) → finalizes `wiki/README.md` and installs the task workflow prompt (`wiki/TASK-WORKFLOW-PROMPT.md`, placeholder resolved). Does **not** write `CLAUDE.md` — it suggests `/wiki-system claude` at the end. | No wiki exists yet, or you want a forced full rebuild after a major architectural change. |
-| `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in each code-anchored track index — `wiki/AGENTS/index.md`, and `wiki/TECHNICAL/index.md` when enabled; SHAs + dirty flags — refreshes on **every** run, as does the installed `TASK-WORKFLOW-PROMPT.md`). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
+| `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in each code-anchored track index — `wiki/AGENTS/index.md`, and `wiki/TECHNICAL/index.md` when enabled; SHAs + dirty flags — refreshes on **every** run, as do the installed `TASK-WORKFLOW-PROMPT.md` and the diff baseline `wiki/.internal/recheck-baseline.yaml`). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
+| `/wiki-system recheck diff` | `recheck.md` § DIFF MODE | **Variant of recheck: audit only what changed since the last verified SHA.** Diffs each repo against its `recheck-baseline.yaml` entry (working tree, so uncommitted + untracked changes count), verifies only the change-derived page set (scope intersection + anchor pull-in + previously-flagged pages), and scans for gaps only among added/renamed/untracked files — no full-surface enumeration. Same gates, retries, and human checkpoints; falls back to full scope per repo when the baseline is missing or unusable, and refuses outright when the skill/model changed since the last run. Cheap; a cadence tier between full rechecks, not a replacement (it cannot see claims invalidated by distant changes — an advisory nudge recommends a periodic full run). | Frequent, cheap drift checks — after a merge burst, a daily/weekly quick audit between full rechecks. |
 | `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AGENTS`. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
 
 Mental model: **`init` / `recheck`** = create / audit the local wiki. **`claude`** = (re)generate `CLAUDE.md` from the wiki/repo, pointing agents at `wiki/AGENTS`. The detailed routing for each mode is below.
@@ -85,17 +86,18 @@ Trigger signals:
 - `wiki/.internal/plan.yaml` EXISTS in CWD
 - The user said "recheck", "audit the wiki", "find documentation gaps", "verify docs against code", "refresh stale docs", or similar
 - The user mentioned "I haven't pushed in weeks" / "before a demo" / "weekly health check"
+- **Diff variant** (`/wiki-system recheck diff`): the user said "quick drift check", "what changed since the last recheck", "diff recheck", "cheap recheck", or wants a frequent check between full audits
 
 What it does:
-- Phase R1: loads existing plan
-- Phase R2: scans for source code that has no documentation (coverage-gap detection — `init.md` does not provide this)
-- Phase R3: dispatches verifiers against every page in the plan
+- Phase R1: loads existing plan (diff variant: plus the per-repo baseline `wiki/.internal/recheck-baseline.yaml`)
+- Phase R2: scans for source code that has no documentation (coverage-gap detection — `init.md` does not provide this; diff variant: candidates come from the git change set, no enumeration agents)
+- Phase R3: dispatches verifiers against every page in the plan (diff variant: only against the change-derived verify set — see `recheck.md` § DIFF MODE)
 - Phase R4: dispatches writers to fix verification failures (one auto-fix retry per page, capped)
-- Phase R5: refreshes root artifacts only if structure changed; the repo manifest in each code-anchored track index, the docs-root `AGENTS.md`/`CLAUDE.md` signposts, and the installed `TASK-WORKFLOW-PROMPT.md` refresh every run
+- Phase R5: refreshes root artifacts only if structure changed; the repo manifest in each code-anchored track index, the docs-root `AGENTS.md`/`CLAUDE.md` signposts, the installed `TASK-WORKFLOW-PROMPT.md`, and the diff baseline refresh every run
 
-Cost: moderate — ~50 verifier dispatches for a mid-sized project, plus a handful of writer regens for failures.
+Cost: moderate — ~50 verifier dispatches for a mid-sized project, plus a handful of writer regens for failures. The diff variant is cheap on a quiet week — often < 5 verifiers and zero enumeration agents; it falls back to full scope per repo when its baseline is unusable, and refuses to run (recommending full) when the skill/model changed since the last run.
 
-**To execute Mode 2:** read `recheck.md` and follow its phases end-to-end.
+**To execute Mode 2:** read `recheck.md` and follow its phases end-to-end (the diff variant sets `diff_mode: true` per its CONFIGURATION and § DIFF MODE).
 
 ### Mode 3 — CLAUDE.md (`claude-md.md`)
 

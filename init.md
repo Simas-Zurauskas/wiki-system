@@ -266,6 +266,7 @@ wiki/
 ├── .internal/                 ← skill-internal artifacts (Phase 1–3 outputs); IS committed to git
 │   ├── plan.yaml              ← authoritative plan (you write this in Phase 2)
 │   ├── plan-surface.md        ← surface enumeration (Phase 1)
+│   ├── recheck-baseline.yaml  ← per-repo verified SHAs (Phase 3e; recheck diff reads it)
 │   ├── link-report.md         ← link graph check output (Phase 3e)
 │   ├── verification/          ← verifier YAML reports (Phase 3d, one per page)
 │   │   ├── <page-id>.yaml
@@ -946,6 +947,16 @@ The section is refreshed in every code-anchored track index on **every**
 `init`/`recheck` run (see `recheck.md` R5.2) so the SHAs never silently lag the
 verification they claim.
 
+**Diff baseline — `wiki/.internal/recheck-baseline.yaml`.** Alongside the
+manifest, write the machine-readable baseline that `recheck diff` later
+diffs from (schema: `spec/plan-schema.md` § recheck-baseline.yaml SCHEMA).
+Per present repo: `verified_sha` = `git -C <repo> rev-parse HEAD`,
+`verified_at` = today, `mode: full`, `last_full_sha`/`last_full_at` = the
+same values, `diff_runs_since_full: 0`, and `dirty_files` = the
+repo-relative paths from `git -C <repo> status --porcelain` (cap 100; beyond
+that set `dirty_overflow: true` with an empty list). Orchestrator-written only, at
+finalize — same single-writer rule as the decision log.
+
 **Root agent signposts — `wiki/AGENTS.md` + `wiki/CLAUDE.md`.** A consumer of
 the docs repo itself (an agent reading it via MCP, a clone, or a retriever)
 lands at the repo root, where agent tooling conventionally looks for an
@@ -1370,7 +1381,9 @@ results come from Phase 3d's verifier sub-agents.
 - [ ] **Root artifacts.** `wiki/README.md` was generated (or refreshed) by
       Phase 3e finalize. It exists, opens with the generated-header, and links to
       every enabled top-level track folder under `wiki/`. (`CLAUDE.md` is **not** part of
-      init — suggest `/wiki-system claude` to (re)generate it.)
+      init — suggest `/wiki-system claude` to (re)generate it.) The diff
+      baseline `wiki/.internal/recheck-baseline.yaml` exists and every present
+      repo's `verified_sha` matches its HEAD at finalize.
 - [ ] **Task workflow prompt.** `wiki/TASK-WORKFLOW-PROMPT.md` exists and
       either opens with the install-header and contains zero remaining
       `wiki-{workspace-name}` occurrences (installed copy), or its first line

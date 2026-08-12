@@ -28,9 +28,138 @@ The only recheck-specific knobs:
 - coverage_gap_scan: true | false   # default true; set false to skip Phase R2
 - verify_breadth: all | by_complexity   # default all; by_complexity skips S-tier per init.md Phase 3d
 - regen_disabled: false              # set true for a verify-only audit (no writer dispatches)
+- diff_mode: false                   # true when invoked as `recheck diff` — scope R2/R3 to what
+                                     # changed since the per-repo baseline; see § DIFF MODE
+- diff_full_fallback_ratio: 0.5      # diff mode only: when the change-derived verify set exceeds
+                                     # this fraction of plan pages, recommend a full run instead
 ```
 
 (The auto-fix retry cap is fixed at one — see R4.2. It is not a configurable knob. After the cap, surviving failures route through tier-2 verifier escalation and, if still failing, the R4.3 user resolution gate.)
+
+---
+
+## DIFF MODE (`recheck diff`)
+
+Invoked as `/wiki-system recheck diff` (sets `diff_mode: true`). Same phases,
+same specialists, same gates, same retry caps — the only thing diff mode
+changes is **scope**: R2 and R3 operate on what changed since each repo's
+baseline instead of the whole surface. It is a cadence tier for frequent,
+cheap runs between full rechecks — not a replacement for them (see "What diff
+mode cannot catch" below).
+
+**Git is a scoping mechanism here, not a drift detector.** Every page in the
+change-derived set is still verified by a verifier sub-agent — nothing is
+ever "grep-verified." Pages outside the set are skipped for one reason only:
+their source snapshot is byte-identical between the baseline and now, so
+there is nothing new to confront them with. The verifier remains the only
+sanctioned drift detector (§ CONSTRAINTS).
+
+### Baseline
+
+The per-repo baseline is `wiki/.internal/recheck-baseline.yaml` — schema in
+`spec/plan-schema.md` § recheck-baseline.yaml SCHEMA. Loaded in R1 step 6;
+resolve per **present** repo:
+
+- Entry present, `git -C <repo> cat-file -e <verified_sha>^{commit}`
+  succeeds, and `dirty_overflow` is false → the repo runs in **diff scope**.
+- File missing, entry missing or unparseable, SHA unreachable, or
+  `dirty_overflow: true` → **per-repo fallback**: this repo runs at full
+  scope this run (R2.1 enumeration + its pages verified per R3's breadth
+  rules) and
+  gets a fresh baseline entry at R5.2 with `mode: full`. Other repos
+  continue in diff scope independently. Never reconstruct a baseline from
+  the prose `## Repositories` manifest or from memory — an unusable baseline
+  means full scope, not a guessed diff.
+- **Run-level generator gate:** if the baseline file's `generator_version`
+  differs from this run's, **refuse diff mode** and tell the user to run a
+  full `recheck` — a prompt/model change shifts what counts as a defect, so
+  a diff scope would structurally miss newly-detectable issues (the same
+  logic as R1 step 1's `verify_breadth: all` preference). Do not silently
+  degrade.
+- Absent repos: unchanged partial-access rules (R1 step 5) — skipped
+  entirely, baseline entries preserved verbatim.
+
+### Change set (per diff-scoped repo)
+
+```
+git -C <repo> diff --name-status -M <verified_sha>      # baseline → WORKING TREE
+git -C <repo> ls-files --others --exclude-standard      # untracked files
+```
+
+The change set is the union of: every `M`/`A`/`D` path; **both** sides of
+every `R` rename row; every untracked file; and the baseline entry's
+`dirty_files[]` (paths dirty at the last finalize — a file dirty then and
+reverted since would otherwise diff as "unchanged" while the pages describe
+its dirty state). Diffing against the working tree — not HEAD — is
+deliberate: pages document the tree the developer sees, committed or not.
+
+### Verify set (what R3 dispatches instead of all pages)
+
+The union of:
+
+1. **Scope intersection** — every page whose glob-expanded `scope_files`
+   match any change-set path. Deleted files and both rename sides count: a
+   page scoping a deleted file must be verified — its claims now point at
+   nothing.
+2. **Anchor pull-in** — grep the enabled track folders for the anchor form
+   `<repo>/<changed-path>` (and the bare `<changed-path>` within repo-scoped
+   page folders, per the manifest's anchor-resolution note); every page
+   citing a changed file joins the set even when its `scope_files` don't
+   cover it. Additive only — the grep can never remove a page from the set,
+   and its results are never treated as verification.
+3. **R1-flagged pages** — incomplete stubs (synthetic `fail_hard`, as ever)
+   and pages with a prior `_failures.md` entry whose `resolution.status` is
+   `deferred` or `pending`. R1 gives these priority; a diff run does not let
+   them hide behind an unchanged scope.
+
+`verify_breadth` still applies **within** this set (`by_complexity` skips
+S-tier members per its normal rule). Pages outside the set are left exactly
+as committed this run — not verified, not modified, not flagged.
+
+- **Clean short-circuit:** when the change set itself is empty (no tracked
+  diff, no untracked files, no carried `dirty_files[]`), skip the gap scan
+  and all R3/R4 dispatches, report "no changes since baseline," and continue
+  to R5 — the baseline still advances (trivially sound: the content is
+  identical). An empty **verify set** with a NON-empty change set is *not* a
+  short-circuit: the gap scan and the R2.4 checkpoint still run (an added
+  file no page scopes or cites produces exactly this shape), and any user
+  `extend`/`new` decision feeds R4.1 items (3)/(4) writer dispatches as
+  usual.
+- **Ratio guard:** if the set exceeds `diff_full_fallback_ratio` of plan
+  pages, tell the user a full recheck costs barely more and recommend it;
+  proceed in diff scope only if they explicitly choose to. Never decide
+  silently.
+
+### Gap scan (replaces R2.1's enumeration agents)
+
+Do **not** dispatch per-repo enumeration sub-agents for diff-scoped repos.
+Gap candidates are only: `A` paths, untracked files, and rename **new**
+paths — filtered by the same documentable-kind and exclusion rules as
+`init.md` Phase 1's surface enumeration (tests, generated code, lockfiles
+etc. drop out). Bucket every candidate not matching any page's `scope_files`
+as `uncovered_new`. A rename whose new path falls outside every scope glob
+is reported with a **rename hint** — "renamed from `<old-path>`; suggested
+home: the page(s) that scoped the old path" (list them all; when several,
+name a reference-track page first) — so the natural R2.4 decision
+is `extend`, the sanctioned way `scope_files` learns the new path (recheck
+never patches the plan without a user decision). When the user chooses
+`extend` on a rename-hinted row, **replace** the old path with the new one in
+every page's `scope_files` that listed it — a rename is a move, not an
+addition; leaving the old path behind ships a plan pointing at a nonexistent
+file. Record the multi-page patch in `decisions.md`. The R2.2 page-thinning
+check is agent-free and runs unchanged, as do the R2.3 report and the R2.4
+human checkpoint.
+
+### What diff mode cannot catch (why full rechecks stay in the cadence)
+
+A claim invalidated by a *distant* change — "this loop is duplicated across
+4 call sites" going stale when a 5th appears in a file no page scopes and no
+anchor cites — is invisible to diff scoping; anchor pull-in narrows this
+class but cannot close it. The full-breadth cross-page contradiction sweep
+is likewise narrowed. Hence the **staleness nudge** (emitted at R5.2,
+advisory only, never a gate): when any repo's `last_full_at` is older than
+~30 days, or its baseline entry's `diff_runs_since_full` counter has reached
+5, recommend a full `recheck` in the run summary.
 
 ---
 
@@ -40,6 +169,7 @@ The only recheck-specific knobs:
 | --- | --- | --- |
 | "I haven't pushed in weeks; verify everything before a demo" | ✅ this prompt | |
 | "I want to find code that isn't documented at all" | ✅ this prompt | |
+| "Quick drift check — what changed since the last recheck / after a merge burst" | ✅ this prompt, as `recheck diff` (§ DIFF MODE) | |
 | "I added a new repo or changed the wiki's top-level structure" | | `init.md` (re-plan) |
 | "A specific page looks stale; just check that one" | | Dispatch `specialists/verifier.md` directly against the page |
 
@@ -113,6 +243,12 @@ Sequential and fast. No sub-agents.
      (`null` if no remote — never guess), plus `default_branch` when cheaply
      determinable. This feeds the repo-manifest refresh in R5.2. Absent repos
      keep whatever their plan entry already has.
+6. **Load the diff baseline (diff mode only).** Read
+   `wiki/.internal/recheck-baseline.yaml` and resolve each present repo to
+   diff scope or per-repo full fallback per § DIFF MODE "Baseline" —
+   including the run-level generator gate, which may refuse diff mode
+   outright. Plain recheck skips this step (the file is only written, at
+   R5.2).
 
 ---
 
@@ -126,6 +262,11 @@ The verifier checks claims *inside* a draft against source. It cannot say
 "the source has three new endpoints that no page mentions." Phase R2 fills that
 gap by scanning source for documentable surface and asking whether each piece
 maps to a page in the plan.
+
+**Diff mode:** for diff-scoped repos, R2.1's enumeration agents are NOT
+dispatched — the candidate list comes from the change set instead (§ DIFF
+MODE "Gap scan"). R2.2–R2.4 run unchanged. Repos that fell back to full
+scope run R2.1 normally.
 
 ### R2.1 Enumerate documentable surface
 
@@ -208,9 +349,10 @@ After the user responds, patch `wiki/.internal/plan.yaml` accordingly (for `exte
 
 ---
 
-## PHASE R3: FULL-BREADTH VERIFY
+## PHASE R3: VERIFY (FULL-BREADTH BY DEFAULT)
 
-Parallel. Dispatch verifier sub-agents against every page in the plan, with
+Parallel. Dispatch verifier sub-agents against every page in the plan — or,
+in diff mode, against the change-derived verify set from § DIFF MODE — with
 breadth controlled by CONFIGURATION:
 
 - `verify_breadth: all` — every page in `pages[]` (default)
@@ -220,8 +362,9 @@ breadth controlled by CONFIGURATION:
 
 **R3 is mandatory and not elidable.** The verifier pass is the whole point of a
 recheck. The *only* sanctioned ways to narrow it are the `verify_breadth` setting
-above and the drift-driven page set from R2 — both of which still run the
-verifier sub-agent on the pages they cover. Do **not** substitute a manual read
+above, the drift-driven page set from R2, and diff mode's change-derived
+verify set (§ DIFF MODE — which may legitimately be empty on a quiet repo) —
+all of which still run the verifier sub-agent on the pages they cover. Do **not** substitute a manual read
 or a `grep`/stale-claim sweep for the verifier pass, and do not skip it by
 declaring drift "high-confidence" and rewriting directly. (Surgical corrections
 are allowed in R4 — but anything you edit must then be re-verified, never just
@@ -431,6 +574,23 @@ repo keeps its existing manifest entry verbatim, annotated
 against new code but left old SHAs in the manifest would misstate what the
 docs were checked against — this step is why the manifest can be trusted.
 
+**The diff baseline is likewise NOT covered by that skip — write it on every
+run.** Rewrite `wiki/.internal/recheck-baseline.yaml` (schema:
+`spec/plan-schema.md` § recheck-baseline.yaml SCHEMA) from the same finalize
+data as the manifest. Per present repo: `verified_sha` =
+`git -C <repo> rev-parse HEAD`, `verified_at` = today, `mode` = how this repo
+was verified this run (`diff`, or `full` — a plain recheck, or a per-repo
+fallback inside a diff run), `dirty_files` = the repo-relative paths from
+`git -C <repo> status --porcelain` (cap 100; beyond that set
+`dirty_overflow: true` and leave the list empty),
+`last_full_sha`/`last_full_at` advanced only when `mode: full`, and
+`diff_runs_since_full` incremented on a diff-scoped verify and reset to 0 on
+a full one (the counter behind the staleness nudge). Absent repos keep their
+entries verbatim. On diff runs, additionally append to each
+diff-scoped repo's manifest bullet: "(diff recheck — last full verify
+<last_full_at>)", and emit the staleness nudge (§ DIFF MODE) in the run
+summary when it applies.
+
 The `## Source repositories` list in `wiki/README.md` carries no SHAs, so it
 is not part of the every-run refresh — but refresh it (even under the
 zero-structural-changes skip) whenever the repo set or any
@@ -482,6 +642,13 @@ Run these before reporting the run as complete. Subset of `init.md`
       current report fails this gate; do not report the run complete. A
       stale-claim grep sweep does NOT satisfy this gate. This is the gate that
       stops surgical edits from silently leaving sibling pages contradictory.
+- [ ] **Baseline integrity.** `wiki/.internal/recheck-baseline.yaml` exists
+      and, for every present repo, its `verified_sha` equals
+      `git -C <repo> rev-parse HEAD` at finalize and `mode` reflects how the
+      repo was verified this run. On a diff run, `decisions.md` records the
+      baseline→HEAD SHAs and the set sizes (pages verified / skipped / gap
+      candidates) per diff-scoped repo. A diff run that cannot state which
+      baseline it diffed from is a bug.
 - [ ] **Failures triaged.** Every `fail_hard` verdict from this run has a
       user-recorded resolution (`regen_with_context` / `patch_scope` /
       `scope_shrink_stub` / `accept_with_banner` / `delete_page` / `defer`)
@@ -503,7 +670,17 @@ Run these before reporting the run as complete. Subset of `init.md`
 - **Phase R3 (verify) is mandatory and the verifier is the only sanctioned
   drift detector.** Substituting a manual read, a `grep`/stale-claim sweep, or a
   "direct high-confidence rewrite" for the verifier pass is a spec violation. To
-  reduce cost, narrow `verify_breadth` — never skip R3.
+  reduce cost, narrow `verify_breadth` or run `recheck diff` (§ DIFF MODE — git
+  scopes the verify set; it never substitutes for verification) — never skip R3.
+- **Diff mode never degrades silently.** Per-repo fallbacks, the run-level
+  generator refusal, and the ratio recommendation are all surfaced to the
+  user; a diff run must state which repos ran in diff scope, which fell
+  back, and why. R4/R4.3 run unchanged in diff mode — a smaller verify set
+  never loosens failure handling.
+- The baseline (`wiki/.internal/recheck-baseline.yaml`) is written only at
+  R5.2 (single-writer, like the decision log) and never reconstructed from
+  the prose manifest, memory, or guesswork — an unusable baseline means
+  per-repo full scope, not a guessed diff.
 - **Every page the run edits must be re-verified before R5** — writer
   re-dispatches and direct/surgical orchestrator edits alike (R4 + the
   "Every modified page re-verified" QUALITY GATE). An edited page with no
@@ -538,4 +715,4 @@ Run these before reporting the run as complete. Subset of `init.md`
 | `specialists/technical.md` | Invoked unchanged in Phase R4 for technical-section writers. |
 | `specialists/product.md` | Invoked unchanged in Phase R4 for product-section writers. |
 | `specialists/verifier.md` | Invoked unchanged in Phase R3. |
-| `spec/plan-schema.md` | Authoritative for plan structure. Phase R1 validates against it; Phase R2.4 patches conform to it. |
+| `spec/plan-schema.md` | Authoritative for plan structure. Phase R1 validates against it; Phase R2.4 patches conform to it. Also hosts the § recheck-baseline.yaml SCHEMA read by § DIFF MODE and written at R5.2. |

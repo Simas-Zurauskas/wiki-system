@@ -458,6 +458,77 @@ sibling pages itself.
 
 ---
 
+## recheck-baseline.yaml SCHEMA
+
+`wiki/.internal/recheck-baseline.yaml` is the machine-readable record of what
+each repo's pages were last verified against — the baseline that
+`../recheck.md` § DIFF MODE diffs from. It exists because the human-facing
+`## Repositories` manifest (in each code-anchored track index) is prose, not
+a parse target.
+
+```yaml
+schema_version: "1"          # this artifact's own version — independent of the plan's
+updated_at: <ISO-8601 timestamp of the run that last wrote this file>
+generator_version: "wiki-system v<N> · <model-id>"
+                             # generator of the run that last VERIFIED pages (not the
+                             # run that produced the plan). DIFF MODE's run-level
+                             # generator gate reads THIS field.
+repos:
+  - name: <folder name>      # matches meta.repos[].name in plan.yaml
+    verified_sha: <sha>      # git -C <repo> rev-parse HEAD at that run's finalize
+    verified_at: <ISO-8601 date>
+    mode: full | diff        # what kind of verify pass produced verified_sha
+    dirty_files: []          # repo-relative paths dirty at finalize (tracked-modified
+                             # or untracked, per git status --porcelain). Cap 100
+                             # entries — beyond that set dirty_overflow and leave
+                             # the list empty.
+    dirty_overflow: false    # true → >100 dirty files at finalize; the next diff
+                             # run falls back to full scope for this repo
+    last_full_sha: <sha>     # HEAD at the end of the last FULL verify of this repo
+                             # (init, full recheck, or per-repo fallback) — never
+                             # advanced by a diff-scoped verify
+    last_full_at: <ISO-8601 date>
+    diff_runs_since_full: 0  # incremented at R5.2 on each diff-scoped verify of
+                             # this repo, reset to 0 on a full one. Drives the
+                             # staleness nudge (≥5 → recommend a full recheck).
+                             # A missing field reads as 0 (pre-existing baselines).
+```
+
+**Who writes it:** orchestrators only, at finalize — `../init.md` Phase 3e
+step 2 (all repos `mode: full`) and `../recheck.md` R5.2 (every run, both
+modes). Single-writer, same rule as the decision log; sub-agents never touch
+it. An aborted run never advances it — re-running recomputes the same diff
+from the same baseline (idempotent).
+
+**Who reads it:** `../recheck.md` § DIFF MODE (loaded in R1). Nothing else
+depends on it; plain recheck and init only write it.
+
+**Invariants:**
+
+- A malformed file, an unparseable entry, or a missing entry for a present
+  repo ≡ no baseline for that repo → DIFF MODE falls back to full scope for
+  that repo. Never a crash, never a halt, and never reconstructed from the
+  prose manifest (a pre-existing wiki simply gets the file written by its
+  next full-scope run).
+- An **absent** repo's entry is preserved verbatim across runs (partial
+  access, `../recheck.md` R1 step 5) — same rule as its manifest bullet.
+- `last_full_*` advances only with `mode: full`. A diff run advances
+  `verified_sha` — sound because pages outside the verify set saw no change
+  the run could detect (the tracked diff, the untracked-file scan, and the
+  carried `dirty_files[]` union all came up empty for their scope and
+  anchors), while pages inside were re-verified against the working tree at
+  that SHA. Two honest caveats: verification runs against the working tree
+  (any dirty state is recorded in `dirty_files[]` for the next run to carry),
+  and a `verify_breadth` narrowing can skip a changed S-tier page — the same
+  accepted narrowing a full recheck has. `last_full_*` stays untouched —
+  that pair (plus `diff_runs_since_full`) is what the staleness nudge and
+  the manifest's "(diff recheck — last full verify …)" clause read.
+- The file is run-state, not plan: adding or changing it never bumps the
+  plan's `meta.schema_version` — it is exactly the kind of computable cache
+  § EVOLUTION keeps out of `plan.yaml`.
+
+---
+
 ## INVARIANTS
 
 A valid `wiki/.internal/plan.yaml` must satisfy all of:

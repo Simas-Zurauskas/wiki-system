@@ -7,6 +7,59 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v14 — 2026-08-12
+
+**New `recheck diff` — audit only what changed since the last verified SHA.**
+
+- New recheck variant, invoked `/wiki-system recheck diff` (`recheck.md`
+  § DIFF MODE; SKILL.md routes it inside Mode 2). Same phases, specialists,
+  gates, retry caps, and human checkpoints as a full recheck — only the
+  **scope** changes: R2 and R3 operate on the git change set since each
+  repo's baseline instead of the whole surface. Git is a scoping mechanism,
+  not a drift detector: every page in the set still gets a verifier
+  sub-agent; pages outside are skipped only because their source snapshot is
+  byte-identical. The R3 "only sanctioned narrowings" rule now names the
+  change-derived set alongside `verify_breadth` and the R2 drift set.
+- **New machine-readable baseline** `wiki/.internal/recheck-baseline.yaml`
+  (schema in `spec/plan-schema.md` § recheck-baseline.yaml SCHEMA): per repo
+  `verified_sha`/`verified_at`/`mode` (full|diff), `dirty_files[]` (≤100,
+  else `dirty_overflow`) and `last_full_sha`/`last_full_at`. Written by
+  `init` finalize (Phase 3e step 2) and refreshed by **every** recheck at
+  R5.2 (explicitly not covered by the zero-structural-changes skip);
+  orchestrator-only single writer, like the decision log. Run-state artifact
+  — no plan `schema_version` bump (stays 1.5).
+- **Change set** per diff-scoped repo: `git diff --name-status -M
+  <verified_sha>` against the **working tree** (uncommitted counts) +
+  `git ls-files --others --exclude-standard` (untracked) + the baseline's
+  `dirty_files[]` (closes the dirty-then-reverted hole surgically instead of
+  a whole-repo fallback). **Verify set**: pages whose `scope_files`
+  intersect the change set (deletions and both rename sides count) +
+  **anchor pull-in** (pages citing a changed path via `<repo>/<path>`
+  anchors, additive only) + R1-flagged pages (stubs, deferred/pending
+  failures). `verify_breadth` applies within the set; an empty set
+  short-circuits cleanly to R5.
+- **Diff-scoped gap scan**: R2.1's per-repo enumeration agents are not
+  dispatched; candidates are added/renamed-new/untracked files under the
+  usual kind/exclusion filters. A rename's new path is reported with a
+  rename hint ("renamed from X — suggested home: the page that scoped X")
+  so the R2.4 `extend` decision — still a human checkpoint — is how
+  `scope_files` learns new paths. The R2.2 thinning check runs unchanged.
+- **Fallbacks, never silent**: per-repo full scope when the baseline entry
+  is missing/malformed, the SHA is unreachable, or `dirty_overflow` is set
+  (no reconstruction from the prose manifest — a pre-v14 wiki's first
+  recheck runs full and writes the baseline); run-level **refusal** when the
+  baseline's `generator_version` differs from the current run's; a
+  recommendation to run full when the set exceeds
+  `diff_full_fallback_ratio` (default 0.5) of plan pages. New quality gate
+  (**Baseline integrity**) requires the post-run baseline to match HEAD and
+  the diff-run decision-log record (baseline→HEAD SHAs + set sizes).
+- **Cadence framing**: diff mode is a fast tier between full rechecks, not a
+  replacement — it cannot see claims invalidated by distant changes outside
+  the change set. R5.2 emits an advisory staleness nudge (last full verify
+  > ~30 days, or the baseline's `diff_runs_since_full` counter ≥ 5) and
+  annotates diff-scoped manifest bullets with "(diff recheck — last full
+  verify <date>)".
+
 ## v13 — 2026-08-12
 
 **Every wiki now ships a task workflow prompt at its docs root.**

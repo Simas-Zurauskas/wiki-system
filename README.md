@@ -21,7 +21,7 @@ It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Dura
 2. **One generated home.** `wiki/` is auto-generated and authoritative for "what the system does" — every page written from source and re-verified against it. Hand-written intent (plans, RFCs, research) lives in user-owned docs-root folders, outside the pipeline. Small in-place hand-edits survive re-runs via `AUTOREGEN_SKIP` zones.
 3. **The plan is the coordination spec.** `wiki/.internal/plan.yaml` defines every page, its source files, its writer, and its links. The orchestrator writes it once; writers and verifiers consume it. A run interrupted mid-flight resumes from the plan plus on-disk state.
 4. **The verifier is the only quality gate.** No human-confirm step. The verifier's verdict decides a page's fate: accept, auto-fix, or flag for human review.
-5. **Verify cheaply, regenerate only what fails.** A recheck verifies pages (cheap, read-only) and regenerates only those that drift. With `git diff`, pages whose source is unchanged are skipped entirely.
+5. **Verify cheaply, regenerate only what fails.** A recheck verifies pages (cheap, read-only) and regenerates only those that drift. `recheck diff` goes further: it diffs each repo against the last verified SHA (`wiki/.internal/recheck-baseline.yaml`) and skips every page whose source snapshot is unchanged — pages in the change set still get real verifiers; git only scopes, it never verifies.
 
 ---
 
@@ -64,7 +64,7 @@ Only enabled tracks exist on disk — routing and `wiki/README.md` list only tra
 
 ## The pipeline
 
-Two flows: a full **bootstrap** (`init`) and an incremental **recheck**. Recheck is the steady state — verify what exists, regenerate only what drifted:
+Two flows: a full **bootstrap** (`init`) and an incremental **recheck**. Recheck is the steady state — verify what exists, regenerate only what drifted. Its `diff` variant is the fast cadence tier: same flow, but the coverage scan and verify set are derived from `git diff` against each repo's last verified SHA instead of the full surface (falling back to full scope per repo when the baseline is unusable):
 
 ```mermaid
 flowchart TD
@@ -106,6 +106,7 @@ Three commands. Ground truth for verification is always the **source code**.
 | --- | --- |
 | `/wiki-system init` | Bootstrap the local wiki from scratch: scan → plan → stub → write → verify → finalize. |
 | `/wiki-system recheck` | Audit the local wiki against current code: coverage-gap scan, verify-first, regenerate drift. Does not re-plan. |
+| `/wiki-system recheck diff` | Cheap recheck variant: verify only pages affected since each repo's last verified SHA (scope intersection + anchor pull-in); gap-scan only added/renamed/untracked files. Falls back to full per repo when the baseline is unusable. |
 | `/wiki-system claude` | Create/update a lean (≤200-line) `CLAUDE.md` routing agents at `wiki/AGENTS`. The only command that writes it. |
 
 Mental model: `init`/`recheck` create and audit the local wiki; `claude` regenerates `CLAUDE.md`.
@@ -166,7 +167,8 @@ Honest calibration matters: inflated severity blocks legitimate updates; deflate
 | `fail_hard` accumulating silently | Eliminated by design: the run does not complete until every `fail_hard` page from this run has a recorded resolution (regen / patch / shrink / accept / delete / defer). `defer` is an explicit dated choice surfaced again on the next run, not a silent skip. |
 | Regen produces only rephrasing | Verify-first skips pages that didn't change. If unchanged pages keep getting rewritten, tighten `state: unchanged`. |
 | Prompt drift after a model release | Version the prompts (`VERSION`); force a full `init` and review on a version bump. |
-| Cost runaway on a large recheck | Verify-first keeps it down; `verify_breadth: by_complexity` bounds it further. |
+| Cost runaway on a large recheck | Verify-first keeps it down; `verify_breadth: by_complexity` bounds it further; `recheck diff` bounds it to what changed since the last verified SHA. |
+| Diff recheck missing drift from distant changes | By design it cannot see claims invalidated outside the change set (anchor pull-in narrows this, can't close it) — the staleness nudge recommends a periodic full recheck (>30 days or 5+ consecutive diff runs). |
 
 The principle: **observable rot beats silent rot.** The system makes problems visible rather than pretending they can't happen.
 
