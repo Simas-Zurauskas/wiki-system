@@ -216,7 +216,13 @@ Check if the output directory (`wiki/`) already exists. If it does:
   anything the skill did not generate — is
   user territory (`SKILL.md` § What this skill does NOT do): do not read it
   into the classification, do not flag it as stale or structurally problematic,
-  and never delete or restructure it, no matter how outdated it looks.
+  and never delete or restructure it, no matter how outdated it looks. That
+  includes the optional `wiki/LINKS.md` — in **this** command its existence is
+  checked at finalize (Phase 3e) purely to decide whether a pointer line is
+  emitted, and its contents are never read; it is never classified, never
+  verified, and never a coverage gap. (Only `/wiki-system claude` reads its
+  entries, to copy them into `CLAUDE.md` — `SKILL.md` § Optional: external
+  references.)
 - Compare documented state against current code
 - Identify gaps, stale content, and structural problems — in the generated
   surfaces only
@@ -275,6 +281,9 @@ wiki/
 │       └── decisions.md
 ├── README.md                  ← orchestrator-generated in Phase 3e (finalize) — human front door; renders on GitHub
 ├── TASK-WORKFLOW-PROMPT.md    ← orchestrator-installed in Phase 3e (finalize) — paste-ready prompt for larger agent tasks
+├── LINKS.md                   ← OPTIONAL, hand-written, USER-OWNED — external references (Notion/Linear/Figma).
+│                                 Read (never written) at finalize; linked from README.md + AGENTS.md when present.
+│                                 See SKILL.md § Optional: external references.
 │
 ├── AGENTS/                        ← agents track (ALWAYS ON) — agent-optimized, standalone-complete
 │   ├── index.md               ← navigable machine index (the "front door")
@@ -842,7 +851,8 @@ Synthesize the wiki's entry point from the now-complete reference tree.
 (GitHub etc.) renders at the docs-repo root; it lists ONLY enabled tracks
 (a track with no folder on disk is never mentioned), and it never mentions
 user-owned docs-root folders or files (task workspaces, audit/research
-folders) — the content list below is **exhaustive**; a user pointer belongs
+folders) — with the single sanctioned exception of `LINKS.md`, named in the
+content list below. That list is **exhaustive**; any other user pointer belongs
 inside an `AUTOREGEN_SKIP` block here. Its
 FIRST line is the generated-header (verbatim):
 
@@ -871,6 +881,11 @@ Read `wiki/.internal/plan.yaml` and the on-disk track folders under `wiki/`
 - A one-line pointer to the installed task workflow prompt: to run a larger
   agent task against this workspace, start from
   [TASK-WORKFLOW-PROMPT.md](TASK-WORKFLOW-PROMPT.md)
+- **Only if `wiki/LINKS.md` exists** — one line, no bullet list of its contents:
+  "Product context that lives outside this codebase is listed in
+  [LINKS.md](LINKS.md)." Omit the line entirely when the file is absent; never
+  create it, and never restate or fetch what it links to (`SKILL.md`
+  § Optional: external references)
 - Quick reference table: build/run/test commands per repo (from CONFIGURATION)
 
 If the existing `wiki/README.md` contains content between
@@ -969,9 +984,14 @@ wholesale on every `init`/`recheck` run (same cadence as the manifest):
   [AGENTS/index.md](AGENTS/index.md)"** (load pages on demand, not
   cover-to-cover); read `AGENTS/invariants.md` before proposing code changes;
   resolve `<repo>/<path>:<line>` anchors via the `## Repositories` manifest in
-  `AGENTS/index.md`; humans start at `README.md`. Close with a one-line
+  `AGENTS/index.md`; humans start at `README.md`; **and — only when
+  `wiki/LINKS.md` exists — one line**: "Product context outside this codebase:
+  [LINKS.md](LINKS.md) — read it before answering product, scope, or roadmap
+  questions." (omitted entirely when the file is absent; never listing what it
+  contains, never fetching those URLs). Close with a one-line
   generated-by comment. This content list is **exhaustive** — add nothing else:
-  no mentions of user-owned docs-root folders, no extra guidance lines. The
+  no mentions of user-owned docs-root folders beyond that one sanctioned
+  `LINKS.md` line, no extra guidance lines. The
   file has no `AUTOREGEN_SKIP` mechanism, so anything freelanced into it is
   silently lost on the next run — which is why nothing beyond the list may be
   written.
@@ -988,8 +1008,9 @@ ships a paste-ready prompt (`TASK-WORKFLOW-PROMPT.md`, a skill file beside this
 `init.md`) that developers use to run larger agent tasks against this workspace
 (plan → adversarial review → approval → phased implement → final review), with
 per-task folders under `wiki/tasks/` — user territory the skill never touches
-(the prompt naming `tasks/` is the one sanctioned mention of user territory in
-a generated file; see `SKILL.md` § What this skill does NOT do). Install it at
+(the prompt naming `tasks/` is one of only two sanctioned mentions of user
+territory in a generated file, the other being the `LINKS.md` pointer above;
+see `SKILL.md` § What this skill does NOT do). Install it at
 the docs root on every run:
 
 1. Read the skill file `TASK-WORKFLOW-PROMPT.md`.
@@ -1025,6 +1046,10 @@ Run four deterministic checks:
   walk, report on, or "fix" files in user-owned docs-root folders (task
   workspaces, audit/research folders — anything the
   skill did not generate). State this scope in `wiki/.internal/link-report.md`.
+  `wiki/LINKS.md` is user-owned and so is never walked as a **source** — but it
+  is a legitimate link **target** for the `README.md`/`AGENTS.md` pointers. If
+  that target does not resolve (the user deleted the file), the fix is to
+  **remove the pointer lines**, never to create `LINKS.md`.
 - **Orphan check.** Every generated page must link to at least one other page AND
   be linked from at least one other page. Exempt: `wiki/README.md` (the root
   entry point), the root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md` (found
@@ -1323,7 +1348,9 @@ results come from Phase 3d's verifier sub-agents.
       surfaces** (enabled track folders + `wiki/README.md` + the root signposts
       + the installed `wiki/TASK-WORKFLOW-PROMPT.md` —
       never user-owned docs-root folders or files; scope defined in Phase 3e
-      step 3) resolves to an existing target. Report in
+      step 3) resolves to an existing target. That scope is the set of files
+      **walked**; a sanctioned `LINKS.md` pointer is a valid target and must
+      resolve. Report in
       `wiki/.internal/link-report.md`, stating the scope.
 - [ ] **Orphan check.** Every generated page (except `wiki/README.md`, the
       root signposts `wiki/AGENTS.md`/`wiki/CLAUDE.md`, and the installed

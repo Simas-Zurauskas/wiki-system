@@ -53,9 +53,45 @@ Three commands (`recheck` has a cheap `diff` variant), all writing local artifac
 | `/wiki-system init` | `init.md` | **Bootstrap the local wiki from scratch.** Scans every target repo (parallel per-repo sub-agents) → confirms the track set (`AGENTS` always on; `PRODUCT` and `TECHNICAL` opt-in) → writes `plan.yaml` → stubs pages → dispatches writers for the enabled tracks → dispatches verifiers (auto-fix `fail_soft` once) → finalizes `wiki/README.md` and installs the task workflow prompt (`wiki/TASK-WORKFLOW-PROMPT.md`, placeholder resolved). Does **not** write `CLAUDE.md` — it suggests `/wiki-system claude` at the end. | No wiki exists yet, or you want a forced full rebuild after a major architectural change. |
 | `/wiki-system recheck` | `recheck.md` | **Audit the existing LOCAL wiki against current code.** Loads the trusted `plan.yaml` (does not re-plan), scans for undocumented source (coverage gaps, human checkpoint), verify-first on every page, regenerates only what drifted (one retry), refreshes root artifacts if structure changed (the repo manifest in each code-anchored track index — `wiki/AGENTS/index.md`, and `wiki/TECHNICAL/index.md` when enabled; SHAs + dirty flags — refreshes on **every** run, as do the installed `TASK-WORKFLOW-PROMPT.md` and the diff baseline `wiki/.internal/recheck-baseline.yaml`). Tolerates **partial access** — code repos absent from the workspace are skipped and their pages left as-is (the committed wiki is the source of truth for them). Does **not** write `CLAUDE.md`. | Periodic local audit — "haven't pushed in weeks", before a demo, after a development gap. |
 | `/wiki-system recheck diff` | `recheck.md` § DIFF MODE | **Variant of recheck: audit only what changed since the last verified SHA.** Diffs each repo against its `recheck-baseline.yaml` entry (working tree, so uncommitted + untracked changes count), verifies only the change-derived page set (scope intersection + anchor pull-in + previously-flagged pages), and scans for gaps only among added/renamed/untracked files — no full-surface enumeration. Same gates, retries, and human checkpoints; falls back to full scope per repo when the baseline is missing or unusable, and refuses outright when the skill/model changed since the last run. Cheap; a cadence tier between full rechecks, not a replacement (it cannot see claims invalidated by distant changes — an advisory nudge recommends a periodic full run). | Frequent, cheap drift checks — after a merge burst, a daily/weekly quick audit between full rechecks. |
-| `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AGENTS`. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
+| `/wiki-system claude` | `claude-md.md` | **Create or update the workspace `CLAUDE.md`** (individual per developer, not committed) to a lean, ≤200-line agent-context file (product description, layout, conventions, build/run/test, a short on-request docs pointer). Points the Documentation section at `wiki/AGENTS`, and copies the external references from `wiki/LINKS.md` into it verbatim when that optional file exists. Synthesizes from the existing wiki / repo metadata; light scan only if no wiki exists. The **only** command that writes `CLAUDE.md`. | After `init`/`recheck`, or whenever the project's identity, layout, conventions, or commands changed and `CLAUDE.md` should catch up. |
 
 Mental model: **`init` / `recheck`** = create / audit the local wiki. **`claude`** = (re)generate `CLAUDE.md` from the wiki/repo, pointing agents at `wiki/AGENTS`. The detailed routing for each mode is below.
+
+## Optional: external references (`wiki/LINKS.md`)
+
+Some projects keep product context **outside** the codebase — a Notion "Start
+Here" page, a Linear project, a Figma file. A project surfaces those to agents by
+hand-writing one optional file at the docs root, `<WIKI>/LINKS.md`:
+
+```markdown
+# External references
+
+- [Start Here — Acme](https://www.notion.so/…) — product source of truth: positioning, roadmap, open decisions
+- [Acme design system](https://figma.com/…) — component specs
+```
+
+What the skill does with it:
+
+- **`claude` inlines the entries into `CLAUDE.md`** — each `- [Label](url) — note`
+  bullet is copied **verbatim** into the `## Documentation` section
+  (`claude-md.md` C1/C2). An agent's first read is `CLAUDE.md`, and it sits
+  outside the docs repo, so the entries have to be *in* it: an agent that would
+  have to open a second file to discover the Notion page exists will answer
+  product questions from code instead. Every bullet, in file order — no cap, no
+  summarizing, no reordering.
+- **`init`/`recheck` add one pointer line** to `wiki/README.md` and the
+  `wiki/AGENTS.md` signpost (`init.md` Phase 3e steps 1–2, `recheck.md` R5.2) —
+  a link, not a copy. Those two files sit **beside** `LINKS.md` in the same
+  repo, one hop away, and both are deliberately tiny.
+- **The skill never fetches these URLs**, in any mode. No content sync, no
+  reachability check, no MCP dependency: a target may be private or dead and
+  nothing about the run changes. Nothing in the wiki or `CLAUDE.md` is ever
+  derived from what is behind a link — verification ground truth stays the
+  source code.
+- **The skill never writes `LINKS.md`.** It is read-only input: never created,
+  edited, or deleted, never a page in the plan, never a verifier's concern,
+  never a coverage gap. **Absent = the feature is off** — nothing is emitted or
+  asked, beyond a one-line nudge at the end of `claude`.
 
 ## Mode selection
 
@@ -136,7 +172,7 @@ If the user names a removed command: Notion publishing (`notion sync` and the ol
 
 - It does NOT modify source code in target repos. Read-only on `scope_files`.
 - It does NOT touch `specs/`, `.claude/`, or config — those are not its concern (`specs/` is stagegate territory).
-- It does NOT touch user content inside the docs root. The skill's surface inside `<WIKI>/` is exactly: the enabled track folders (`AGENTS/`, plus `TECHNICAL/`/`PRODUCT/` when enabled), the docs-root `README.md` (the generated human front door — wikis generated before v12 used `index.md` for this; it is migrated to `README.md` on the next `init`/`recheck` run), the root signposts `AGENTS.md` + `CLAUDE.md`, the installed `TASK-WORKFLOW-PROMPT.md` (a paste-ready larger-task prompt with the `wiki-{workspace-name}` placeholder resolved to the actual docs folder name; refreshed every run unless the project takes ownership by deleting its install-header line — see `init.md` Phase 3e step 2), and `.internal/`. Anything else at the docs root — task workspaces (`tasks/`, `notes/`), audit/research folders, any file or folder the skill did not generate — is **user territory**: never written, never deleted, never read into the documentation-state classification, never walked by the link-graph/orphan gates, and never mentioned in generated files (one deliberate exception: the installed `TASK-WORKFLOW-PROMPT.md` names `tasks/`, because directing task work into that user-owned folder is its purpose). Users may create docs-root files and folders freely without registering them anywhere. The content specs for `README.md` and the root signposts are **exhaustive** — orchestrators must not append sections or lines beyond them; a user who wants a pointer to their own folders puts it inside an `AUTOREGEN_SKIP` block in `README.md`. One safeguard: a docs-root `README.md` whose first line is NOT the generated-header is a hand-written user file — never overwrite it silently; surface the conflict and let the user decide (see the migration note in `init.md` Phase 3e / `recheck.md` R5.2).
+- It does NOT touch user content inside the docs root. The skill's surface inside `<WIKI>/` is exactly: the enabled track folders (`AGENTS/`, plus `TECHNICAL/`/`PRODUCT/` when enabled), the docs-root `README.md` (the generated human front door — wikis generated before v12 used `index.md` for this; it is migrated to `README.md` on the next `init`/`recheck` run), the root signposts `AGENTS.md` + `CLAUDE.md`, the installed `TASK-WORKFLOW-PROMPT.md` (a paste-ready larger-task prompt with the `wiki-{workspace-name}` placeholder resolved to the actual docs folder name; refreshed every run unless the project takes ownership by deleting its install-header line — see `init.md` Phase 3e step 2), and `.internal/`. Anything else at the docs root — task workspaces (`tasks/`, `notes/`), audit/research folders, any file or folder the skill did not generate — is **user territory**: never written, never deleted, never read into the documentation-state classification, never walked by the link-graph/orphan gates, and never mentioned in generated files. Two deliberate exceptions, both narrow: the installed `TASK-WORKFLOW-PROMPT.md` names `tasks/`, because directing task work into that user-owned folder is its purpose; and the optional hand-written `LINKS.md` (§ Optional: external references) is **read** — never written — its entries copied into `CLAUDE.md` and its path linked from `README.md`/`AGENTS.md` when it exists, because a pointer nobody can find is worthless. Users may create docs-root files and folders freely without registering them anywhere. The content specs for `README.md` and the root signposts are **exhaustive** — orchestrators must not append sections or lines beyond them; a user who wants a pointer to their own folders puts it inside an `AUTOREGEN_SKIP` block in `README.md`. One safeguard: a docs-root `README.md` whose first line is NOT the generated-header is a hand-written user file — never overwrite it silently; surface the conflict and let the user decide (see the migration note in `init.md` Phase 3e / `recheck.md` R5.2).
 - It does NOT publish anywhere external. The local `wiki/` tree is the only output (Notion publishing existed through v10 and was removed in v11).
 - It does NOT replace ADRs, design docs, tutorials, or onboarding guides. Those are out of scope by design — see `README.md` § What it solves.
 

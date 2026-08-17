@@ -599,7 +599,13 @@ section if a pre-v12 README lacks it.
 
 Also rewrite the root agent signposts (`wiki/AGENTS.md` + `wiki/CLAUDE.md`)
 per `init.md` Phase 3e step 2 — same every-run cadence, creating them if a
-pre-signpost wiki lacks them.
+pre-signpost wiki lacks them. That rewrite re-evaluates the optional
+`wiki/LINKS.md` pointer from the file's presence on disk every run: present →
+the line is there, absent → it is not. **The `README.md` pointer to `LINKS.md`
+is likewise not covered by the zero-structural-changes skip** — when the file
+appeared or disappeared since the last run, refresh `README.md` for that line
+alone. The skill never creates, edits, or deletes `LINKS.md` itself, and never
+fetches what it links to (`SKILL.md` § Optional: external references).
 
 **The installed task workflow prompt is likewise NOT covered by that skip —
 refresh it on every run.** Reinstall `wiki/TASK-WORKFLOW-PROMPT.md` per

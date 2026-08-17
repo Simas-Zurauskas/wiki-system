@@ -7,6 +7,49 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v15 — 2026-08-17
+
+**Optional `wiki/LINKS.md` — a pointer to product context that lives outside
+the codebase** (a Notion "Start Here" page, a Linear project, a Figma file).
+
+- **One optional, hand-written, user-owned file at the docs root**
+  (`SKILL.md` § Optional: external references), holding
+  `- [Label](url) — note` entries. Read-only input: the skill never creates,
+  edits, or deletes it, and **never fetches the URLs** it names, in any mode.
+- **`claude` copies the entries verbatim into `CLAUDE.md`** — an
+  `**External references**` block in the `## Documentation` section
+  (`claude-md.md` C1 step 5 / C2), every entry in file order, no cap. They are
+  inlined rather than linked because `CLAUDE.md` is an agent's first read and
+  lives outside the docs repo: an agent that must open a second file to
+  discover the Notion page exists will answer product questions from code
+  instead. The block is regenerated from `LINKS.md`, never merged with the
+  previous file's — so a link added only to `CLAUDE.md` (per-developer,
+  uncommitted) is deliberately dropped.
+- **`init`/`recheck` add one pointer line** — not a copy — to `wiki/README.md`
+  (Phase 3e step 1) and the `wiki/AGENTS.md` signpost (Phase 3e step 2), which
+  sit beside `LINKS.md` in the same repo. `recheck` R5.2 re-evaluates presence
+  every run; the `README.md` pointer is exempt from the
+  zero-structural-changes skip, so an added or deleted `LINKS.md` is picked up
+  even on a quiet run.
+- **Absent = the feature is off** — nothing emitted, nothing asked, at zero
+  cost to projects with no external hub. `claude` ends with a one-line nudge
+  when the file is missing; it never creates it.
+- **Why the wiki and not `CLAUDE.md`:** `CLAUDE.md` is per-developer and not
+  committed, so a URL parked there is lost on the next regeneration and never
+  reaches teammates. The wiki repo is committed, so the pointer is shared and
+  survives.
+- **Second sanctioned mention of user territory in a generated file** (the
+  first being `TASK-WORKFLOW-PROMPT.md` naming `tasks/`): `LINKS.md` is never
+  walked as a link-graph *source* and never classified in Phase 1, but it is a
+  valid link *target*. If a user deletes it, the deterministic fix is to remove
+  the pointer lines — never to create the file.
+- No plan `schema_version` bump (stays 1.5) and no new artifact: nothing about
+  this is recorded in `plan.yaml`. `LINKS.md` is never a page in the plan,
+  never a verifier's concern, never a coverage gap. Ground truth for
+  verification remains the source code — a linked page is never a source of
+  facts, and no product description, convention, or command may be derived from
+  one.
+
 ## v14 — 2026-08-12
 
 **New `recheck diff` — audit only what changed since the last verified SHA.**

@@ -63,6 +63,9 @@ exact behavior this command exists to remove.
 3. Note whether `CLAUDE.md` exists at the workspace root → **update** vs **create**.
 4. Note whether the wiki exists (`wiki/README.md` — `wiki/index.md` in pre-v12 wikis — and/or `wiki/.internal/plan.yaml`).
    This decides how you gather facts in C1.
+5. Note whether the optional `wiki/LINKS.md` exists (a bare `ls`/test). Present → C1
+   step 5 reads it and C2 writes its entries into the Documentation section. Absent →
+   C3 emits the nudge.
 
 ## PHASE C1: GATHER FACTS (cheapest source first — do NOT do a full init-style scan)
 
@@ -86,9 +89,17 @@ sufficient source. Stop as soon as you have enough to fill the C2 sections.
 4. **Light structural scan, only if 1–3 are insufficient** — list top-level
    directories and identify entry points. Do **not** read source files broadly; that is
    `init`'s job, not this command's.
+5. **`wiki/LINKS.md`, if it exists** (C0 step 5) — the project's hand-written external
+   references (`SKILL.md` § Optional: external references). Read it and extract **every**
+   `- [Label](url) — note` bullet, in file order, taking label, URL and note
+   **verbatim**. Ignore everything else in the file (headings, prose, nested lists). This
+   is a **transcription step, not a research step**: do not fetch any of these URLs, and
+   never let a linked page's contents become a product description, convention, or
+   command in this file.
 
 If nothing yields a clear product description, **ask the user** — do not invent
-positioning.
+positioning. A `LINKS.md` entry is never a substitute: a URL is not a description, and
+the file is not read for facts about the project.
 
 ## PHASE C2: WRITE `CLAUDE.md`
 
@@ -106,7 +117,9 @@ Write **only** these sections, in this order. Omit any that doesn't apply. **Aim
 
 ### The Documentation section (required template, on-request philosophy)
 
-Adapt wording to the project, but it must say all of this and **no more**:
+Adapt wording to the project, but it must say all of this and **no more** — the one
+permitted addition is the **External references** block below, and only when
+`wiki/LINKS.md` exists:
 
 ```markdown
 ## Documentation
@@ -145,6 +158,47 @@ lives in `wiki/AGENTS/`, never restated here.
 If no wiki exists yet, keep the policy paragraph and the command list, and note that
 the wiki has not been generated (suggest `/wiki-system init`) instead of linking pages.
 
+### External references (only when `wiki/LINKS.md` exists)
+
+Product context often lives outside the codebase — a Notion "Start Here" page, a Linear
+project, a Figma file. An agent that never learns those exist will answer product, scope
+and roadmap questions from code alone, confidently and wrongly. So the entries go **into**
+this file, not behind another hop: `CLAUDE.md` is the first thing an agent reads, and it
+sits outside the docs repo. When C1 step 5 found entries, append this block at the end of
+the Documentation section:
+
+```markdown
+**External references** — product context that lives outside this codebase. Open the
+relevant one before answering product, scope, or roadmap questions; the code is not the
+source of truth for those.
+
+- [Start Here — Acme](https://www.notion.so/…) — product source of truth: positioning, roadmap, open decisions
+- <one line per entry in wiki/LINKS.md, verbatim>
+```
+
+Rules:
+
+- **Verbatim transcription.** Label, URL and note come from `wiki/LINKS.md` exactly as
+  written. Never reword a label, shorten or normalize a URL, invent a note for a bullet
+  that has none, or add an entry the file does not contain.
+- **Every entry, in file order — no cap, no truncation, no merging.** The file is
+  hand-written; dropping an entry its author deliberately added is a bug, not tidiness.
+  (It does count toward the ≤200-line target — if it ever crowds the file, say so in the
+  C3 report and let the human trim `LINKS.md`. Never trim it for them.)
+- **Pointers, not content.** Never fetch these URLs, never paraphrase or summarize what
+  is behind them, never add a bullet describing their contents. One line per entry, no
+  sub-bullets.
+- **Close the block with a pointer to the file itself** — one line: these live in
+  `<link to wiki/LINKS.md>`; add new ones there, not here. That is what keeps the
+  committed file the source of truth.
+- **Omit the whole block** — heading included — when `wiki/LINKS.md` is absent or has no
+  parseable entries. Never write "no external references".
+- **Regenerated, not merged.** If the previous `CLAUDE.md` carried external links that
+  `LINKS.md` no longer lists, **drop them**. `LINKS.md` is the source of truth; this
+  block is a copy of it. A developer wanting a new link adds it there, so the whole team
+  gets it — `CLAUDE.md` is per-developer and uncommitted, so a link added only here is
+  lost on the next regeneration.
+
 ### HARD PROHIBITIONS — never put these in `CLAUDE.md`
 
 - **No per-run history** — no `### This run (YYYY-MM-DD)` / `### Prior …` sections. Run
@@ -154,6 +208,11 @@ the wiki has not been generated (suggest `/wiki-system init`) instead of linking
 - **No deep feature descriptions** — that is what the `wiki/` tracks are for. `CLAUDE.md`
   points; the wiki explains.
 - **No restating `wiki/README.md`** — pointer + link only.
+- **No content from behind an external link** — the External references block is the
+  labels, URLs and hand-written notes from `LINKS.md`, nothing more. Never fetch a linked
+  page, and never let its contents become a description, convention, or command here.
+- **No external links that aren't in `wiki/LINKS.md`** — never add one directly to this
+  file; it would be lost on the next regeneration and never reach anyone else.
 - **No documentation writing-standards / quality-bar / page-structure essays** — those
   belong in this skill, not in every project's `CLAUDE.md`.
 - **No "update docs when you change code" guidance** — see § PHILOSOPHY.
@@ -173,3 +232,15 @@ journal.
    `generator_version` from the `VERSION` file + model id). If no wiki/trace exists,
    skip this. **Never** stamp a version or timestamp into `CLAUDE.md` itself.
 4. Report the final line count and the sections written.
+5. **External-references nudge — one line, only when `wiki/LINKS.md` is absent** (C0
+   step 5) and a wiki exists. Append to the report, once, without asking a question or
+   blocking:
+
+   > No `wiki/LINKS.md` found. If this project has context that lives outside the code —
+   > a Notion "Start Here" page, a Linear project, a Figma file — add it there as
+   > `- [Label](url) — note` and it will be carried into `CLAUDE.md` (and linked from the
+   > wiki's signposts) from the next run on.
+
+   Never create the file yourself, and never repeat the nudge in `CLAUDE.md` itself — it
+   belongs in the run report only. If the file exists, just report how many entries were
+   carried through.

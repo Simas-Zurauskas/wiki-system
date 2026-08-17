@@ -31,6 +31,7 @@ It does **not** produce ADRs, design docs, tutorials, or onboarding guides. Dura
 wiki/
 ├── README.md               ← orchestrator-generated (finalize phase) — human front door; renders on GitHub
 ├── TASK-WORKFLOW-PROMPT.md ← orchestrator-installed (finalize phase) — paste-ready prompt for larger agent tasks
+├── LINKS.md                ← OPTIONAL, hand-written, user-owned — external references (Notion/Linear/Figma)
 │
 ├── .internal/                 ← skill artifacts: plan, verification, traces (COMMITTED to git)
 │   ├── plan.yaml              ← coordination spec
@@ -56,6 +57,7 @@ Only enabled tracks exist on disk — routing and `wiki/README.md` list only tra
 | `wiki/README.md` | Orchestrator (finalize) | No | Auto-rewritten; hand-edit zones survive |
 | `wiki/TASK-WORKFLOW-PROMPT.md` | Orchestrator (finalize — installed from the skill template, `wiki-{workspace-name}` → real folder name) | No | Replaced every run; delete its install-header line to take ownership (skill then never touches it) |
 | `wiki/{AGENTS,TECHNICAL,PRODUCT}/**` | agents / technical / product writer | Yes (claim-by-claim) | Auto-rewritten; hand-edit zones survive |
+| `wiki/LINKS.md` | **The human** — optional, never written by the skill | No | Fully hand-owned, read-only input: `claude` copies its entries verbatim into `CLAUDE.md`; `README.md`/`AGENTS.md` link to it. The skill never fetches the URLs |
 | `CLAUDE.md` | `claude` mode only | No | Individual per dev, **not committed**; machine-generated + preserved `AUTOREGEN_SKIP` human zone |
 
 `wiki/README.md` is derived in the finalize phase from the completed reference tree — it is not a writer page and does not appear in `plan.yaml`. (Wikis generated before v12 used a docs-root `index.md`; the first v12+ run migrates it.) `CLAUDE.md` is written **only** by the `claude` mode; `init`/`recheck` just suggest running it. Hand-edit zones (`<!-- AUTOREGEN_SKIP_BEGIN/END -->`) let projects keep hand-written sections through re-runs.
