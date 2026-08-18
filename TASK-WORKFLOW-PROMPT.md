@@ -95,8 +95,8 @@ does it not handle, and how could it pass while the change is wrong? Where a ste
 could mean two things, draft both readings; the divergence is the finding. A
 constructed case counts only if the state is reachable and something in the plan
 hangs on which reading wins. Flag ONLY correctness bugs or infeasible steps,
-unmet or contradicted requirements, and out-of-scope changes; do NOT flag style
-or propose extra scope. Cite the plan step for every finding.
+security issues, unmet or contradicted requirements, and out-of-scope changes;
+do NOT flag style or propose extra scope. Cite the plan step for every finding.
 
 Fold every accepted finding into PLAN.md, or reject it with a QUOTED ground — the
 path:line that already handles it, or the plan line that already says it.
