@@ -1006,8 +1006,10 @@ written here.
 **Installed task workflow prompt — `wiki/TASK-WORKFLOW-PROMPT.md`.** The skill
 ships a paste-ready prompt (`TASK-WORKFLOW-PROMPT.md`, a skill file beside this
 `init.md`) that developers use to run larger agent tasks against this workspace
-(plan → adversarial review → approval → phased implement → final review), with
-per-task folders under `wiki/tasks/` — user territory the skill never touches
+(plan → dispatched adversarial review → approval → phased implement with
+red-first evidence → two-dispatch final review over the diff plus a deterministic
+gate), with per-task folders under `wiki/tasks/` — user territory the skill never
+touches
 (the prompt naming `tasks/` is one of only two sanctioned mentions of user
 territory in a generated file, the other being the `LINKS.md` pointer above;
 see `SKILL.md` § What this skill does NOT do). Install it at

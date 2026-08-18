@@ -7,6 +7,80 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v16 — 2026-08-18
+
+**The installed task workflow prompt's review steps are made checkable.** Same
+file, same install mechanism, same gates, same block structure — the QA steps are
+what changed. Nothing in `init.md` Phase 3e step 2 / `recheck.md` R5.2 changes.
+
+Why: the old prompt asked for an adversarial review and a final review but made
+neither *checkable*. Both were reading passes with no dispatch requirement, no
+defined diff base, and no rule that a finding or a rejection carry evidence — the
+configuration under which self-review measurably degrades output instead of
+improving it. Every change below either produces an artifact, a required literal
+string, or a mechanical check; nothing was added that no later step reads back.
+
+- **Four rules at the top, covering every step.** Grounded means you ran it (use
+  the real tools rather than memory — test/type-check/lint/build, git, subagents,
+  the app or a browser for user-visible changes, docs or web search before
+  assuming a library's behavior). INDEPENDENT means a separate subagent dispatch
+  in a fresh context — preferably a different model — never a second persona in
+  the same turn, with the verbatim fallback
+  `independence: not available — self-review only` and the item carried as
+  UNVERIFIED. Evidence or it did not happen: a command's output tail or a quoted
+  `path:line`, and counts read fresh. And **never make a check pass by weakening
+  the check** — deleted assertion, added skip, widened type, swallowed exception,
+  hardcoded expected value — which the final gate greps for.
+- **SETUP records BASE and TOOLING.** The per-repo base commit, which is what
+  FINAL REVIEW diffs against and which the old prompt never named; and the
+  workspace's real test / type-check / lint / run commands, verified green on
+  untouched code so a pre-existing failure is not mistaken for the run's.
+- **Before-state evidence.** Reproduce the bug and paste the failing output before
+  planning; for new behavior, show it absent today.
+- **Phases get independent oracles and a break-it check.** The verify command must
+  come from the requirement rather than the implementation, must state what its
+  output has to contain to count as a pass (so a suite printing "0 tests found"
+  is not one), and must be shown to go red when the change is reverted or a
+  condition flipped. A behavior-preserving phase instead names the existing
+  covering test and shows it green with the same test count before and after.
+- **A nine-item edge-case checklist in PLAN.md**, each line either the handling or
+  `N/A — {reason}`, covering what a plan written by the same context that holds
+  the blind spot reliably omits: invalid input, empty and first-run state,
+  concurrency and idempotency, failure and rollback, authorization, migration and
+  backfill, backwards compatibility, production observability, and the test that
+  must fail before the fix. The gate checks all nine are present — a checklist
+  rather than a review dispatch, because a mechanical check is cheaper and
+  harder to skip.
+- **ADVERSARIAL REVIEW is a real dispatch with a real brief.** Read-only, given
+  only PLAN.md, the requirement and the protected-surfaces list — never the
+  conversation — with its verbatim return saved in the task folder. Briefed to
+  attack rather than approve: ask where the *inconsistency* is, never whether the
+  plan looks sound; go phase by phase, one verdict each; attack each verify
+  command specifically; draft both readings where a step is ambiguous; and count a
+  constructed case only if the state is reachable and something hangs on it. Every
+  finding is folded in or rejected with a **quoted** ground — an ungrounded
+  rejection becomes a logged open risk.
+- **FINAL REVIEW is two dispatches over the real diff, plus a deterministic
+  gate.** Diffed against the SETUP base and given the requirement and
+  protected-surfaces list but never the conversation: **conformance** hunk by hunk
+  and **correctness and blast radius** per changed function. The gate is
+  judgment-free: suite green with output tail, type-check and lint clean where
+  those exist, every changed file in the plan's list or carrying a deviation row,
+  no deleted assertion or added skip/only/xfail/ignore without justification, no
+  focused test left behind, all nine edge-case lines present, base commit still an
+  ancestor of HEAD. Fixes re-run the gate, because a fix invalidates the green run
+  before it.
+- **Implementation discipline**: red-first with the failing output pasted, each
+  phase re-running the earlier phases' checks, one real exercise in the app or
+  browser for user-visible changes, and a stop after two failed fix attempts
+  rather than a third try.
+- **Contracts untouched.** Still zero markdown links (so the Phase 3e link-graph
+  walk finds nothing to resolve and the orphan exemption's
+  "legitimately outbound-linkless" rationale still holds); `tasks/` remains the
+  only user-territory mention; nothing is written into the generated track
+  folders. 80 lines to 149.
+- `init.md`'s one-line description of the prompt's arc updated to match.
+
 ## v15 — 2026-08-17
 
 **Optional `wiki/LINKS.md` — a pointer to product context that lives outside
