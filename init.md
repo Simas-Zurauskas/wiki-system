@@ -1007,7 +1007,7 @@ written here.
 ships a paste-ready prompt (`TASK-WORKFLOW-PROMPT.md`, a skill file beside this
 `init.md`) that developers use to run larger agent tasks against this workspace
 (plan → dispatched adversarial review → approval → phased implement with
-red-first evidence → two-dispatch final review over the diff plus a deterministic
+red-first evidence → dispatched final review over the diff plus a deterministic
 gate), with per-task folders under `wiki/tasks/` — user territory the skill never
 touches
 (the prompt naming `tasks/` is one of only two sanctioned mentions of user

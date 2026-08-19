@@ -7,6 +7,105 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v17 — 2026-08-19
+
+**The installed task workflow prompt's mandates are given consumers.** Same file,
+same install mechanism, same block structure. Nothing in `init.md` Phase 3e step 2
+/ `recheck.md` R5.2 changes; `init.md`'s one-line arc description is updated
+because the final review is no longer unconditionally two dispatches.
+
+Why: v16 set the right bar — "nothing was added that no later step reads back" —
+and then missed it for its own headline feature. An adversarial pass (three
+independent dispatches: one attacking a proposed revision, one cold-reading the
+shipped file, one simulating an agent executing it against a bug fix, a refactor
+and a cross-repo schema change) found the break-it proof, the cumulative
+re-verification and the app/browser exercise were roughly a quarter of the
+prompt's mechanical cost while appearing in no gate item, no PROGRESS row spec and
+no dispatch brief — and found four checks that were void in ways nothing surfaced.
+The fix was not to shorten the prompt but to move its budget: every expensive
+mandate now lands in an artifact the gate reads, and the checks that could silently
+pass were closed.
+
+Checks that were silently void, now closed:
+
+- **Untracked files never reached FINAL REVIEW.** `git diff <BASE>` omits them, so
+  a refactor's new shared helper or a migration file was invisible to both review
+  dispatches — and `every file in the diff is in the plan's named file list` passed
+  vacuously. FINAL REVIEW now runs `git add -A -N` per repo first.
+- **SETUP contradicted the gate.** SETUP records pre-existing test failures; the
+  gate demanded an unqualified green suite, so any repo with a known-red or flaky
+  test made the gate unpassable and the agent's only out was to reinterpret it.
+  The gate now allows exactly the failures TOOLING recorded, quoted from that
+  record.
+- **The gate never checked that the dispatches happened.** All three reviews could
+  be self-attested via the `independence: not available` line with every gate item
+  still green. A gate item now requires the return files to exist, each carrying a
+  dispatch id or that line, and nothing left UNVERIFIED.
+- **Rule 4 claimed gate coverage it did not have** — it named six weakening
+  tactics and the gate greps two. The claim is narrowed to the two, and loosened
+  assertions, widened types, swallowed exceptions and hardcoded expected values are
+  now in the CORRECTNESS dispatch's brief. Under-recording TOOLING is named as a
+  fifth weakening tactic, since the gate is parameterised by that record.
+- **CONFORMANCE was asked to detect drift from a plan it was never given.** It now
+  receives `PLAN.md`; CORRECTNESS AND BLAST RADIUS deliberately does not, so it
+  cannot inherit the plan's blind spots. The requirement stays the standard — a
+  diff that matches the plan and misses the requirement is a finding.
+
+Mandates that had no consumer, now anchored:
+
+- **The break-it proof** moves from PLAN (where the line to revert does not exist
+  yet) to IMPLEMENT, and runs AFTER the change lands — for a behavior-preserving
+  phase that is the only proof the moved code is the code being tested. It records
+  `broken: {path:line} — restored: yes` on the phase row, and a gate item reads it.
+  It stays mandatory for every phase: red-first proves a test fails, not that the
+  assertion is what fails, and red on a missing import is not red on the assertion.
+- **The app/browser exercise** becomes a gate item, with an
+  `app verification: not available — {reason}` fallback mirroring the independence
+  line — previously it was a conditional aside mid-paragraph, one of the highest
+  value and least enforced checks in the file.
+- **Red-first** gets a gate item (a red row recorded before its green one) rather
+  than the plan checklist line it used to hide behind.
+- **The coverage checklist** drops its hardcoded count and now requires each line
+  to carry a handling or an `N/A — {reason}` — presence alone satisfied nothing.
+  A line for untrusted input reaching a query, shell, path or template is added;
+  the list had no security question, and `the test that must fail before the fix`
+  moves out to the red-first gate item where it is actually enforced.
+
+Guards added, one line each: BASE covers every repo directly under the workspace
+except the wiki (the dangerous repo is the one you did not expect to touch) and
+records `git status --porcelain`, so work already dirty at SETUP is not attributed
+to the run; an empty repo is recorded rather than skipped; RESUME keeps the
+existing BASE instead of re-recording a baseline that already contains earlier
+phases; the task folder is excluded from the file-list gate item, since PLAN.md and
+PROGRESS.md live in a repo now covered by BASE; PLAN names its test files, so a new
+test file is not a deviation row; the marker check distinguishes an addition from a
+move, which fired spuriously on exactly the refactors it should be quietest on;
+protected surfaces carry an explicit in-scope exception, so a sanctioned schema
+change is not reported as a violation by all three dispatches; the STOP after two
+failed fix attempts restores the tree to its last green state, because that path
+bypasses the gate; a fix made after FINAL REVIEW re-runs the CORRECTNESS dispatch,
+not just the gate; and the work stays uncommitted unless asked — stated in SETUP,
+where it is read before phase 1.
+
+Scoping: the header above the `---` now carries an entry condition (more than one
+file or repo, or you want it reviewed) — above the line, so it never enters the
+agent's context and the size judgment stays with the human. The one in-session
+scale-down is objective, not self-assessed: a diff confined to one repo touching no
+protected surface may collapse the two final dispatches into one carrying both
+briefs. `RESUME` is reachable again — the folder is looked up by ticket/task name
+before a number is taken, and numbering is highest-plus-one rather than a count,
+which collided after any deletion.
+
+`PLAN` and `IMPLEMENT` are itemized to match the gate's format. Across the
+simulations, the mandates that survived a long session were the ones that were
+itemized or produced an artifact; the ones that died were prose, and the gate was
+the only itemized section in the file.
+
+**Contracts untouched.** Still zero markdown links (so the Phase 3e link-graph walk
+finds nothing to resolve and the orphan exemption's "legitimately outbound-linkless"
+rationale still holds); `tasks/` remains the only user-territory mention; nothing is
+written into the generated track folders. 149 lines to 217.
+
 ## v16 — 2026-08-18
 
 **The installed task workflow prompt's review steps are made checkable.** Same
@@ -78,7 +177,7 @@ string, or a mechanical check; nothing was added that no later step reads back.
   walk finds nothing to resolve and the orphan exemption's
   "legitimately outbound-linkless" rationale still holds); `tasks/` remains the
   only user-territory mention; nothing is written into the generated track
-  folders. 80 lines to 149.
+  folders. 55 lines to 149.
 - `init.md`'s one-line description of the prompt's arc updated to match.
 
 ## v15 — 2026-08-17
