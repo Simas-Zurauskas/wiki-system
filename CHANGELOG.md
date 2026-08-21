@@ -7,6 +7,86 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v19 — 2026-08-21
+
+**Second adversarially-verified pass over the installed task workflow prompt.**
+Same file, same install mechanism; no `init.md` change. A fresh six-lens
+cold-read of v18 (cost simulation, gate satisfiability, logic, planning,
+over-engineering, verification economics), with every finding then challenged
+by an adversarial verifier that had to refute it against the file, confirmed
+v18's structure and left narrower defects — all fixed here.
+
+Satisfiability and logic:
+
+- The aggregate before/after **test-count match is gone** (three lenses
+  independently confirmed it false-fails by construction: the mandated
+  characterization phase, or any red-first phase, legitimately adds tests
+  between plan time and the check). The behavior-preserving proof is now
+  purely the named-tests red→restored-green cycle; deletion is still caught by
+  the assertion/marker grep bullet.
+- The fix instruction now covers **failures the gate itself finds**, not only
+  dispatch findings — previously a trivially fixable red bullet had no
+  sanctioned fix path and dead-ended in a STOP.
+- An **escalated LIGHT task** owes review-correctness.md and (now)
+  review-conformance.md; the skipped plan review is recorded under OPEN RISKS,
+  never retro-demanded — and a deviation that outgrows LIGHT mid-IMPLEMENT
+  escalates immediately, putting the updated plan through the adversarial
+  dispatch before the next phase instead of discovering it at the gate.
+- Attribution of a suite failure not in TOOLING is now decided by evidence,
+  not file-touch heuristics alone: re-run once; still failing or in a touched
+  file → stash the work, run that one test at BASE, and let that result decide
+  (fixes the branch that declared a passing flaky test "yours" merely because
+  the diff touched its file).
+- The repro-as-red shortcut copies the repro onto the phase's PROGRESS row, so
+  the gate's red-row check reads the place the evidence actually lands; a
+  not-runnable phase command records `verification: not available` on its row
+  (the escape existed only in FINAL REVIEW before); the residual-risk clause
+  moved out of the gate (the summary it referenced does not exist at gate
+  time); the marker bullet is scoped to markers the diff added; a dirty-at-BASE
+  quote excuses only files the task did not edit; the cite-last-run condition
+  is decidable (PROGRESS rows, not `git status`, which is never clean here).
+- Restore mechanics are real in every state: a phase-0 patch snapshots
+  pre-existing dirt at SETUP, the two-strike restore names its commands, a
+  `no BASE` repo's patch is its whole tree, and BASE gains lazy extension for
+  a task repo living outside the workspace root (previously invisible to the
+  final diff entirely).
+
+Cost (verified remainders from the v18 pass):
+
+- A gate-round fix invalidates only the repos it touched; other repos' cited
+  greens stand — previously one one-line fix re-ran every repo's suite.
+- The plan-negotiation loop (human changes → re-dispatch → re-present) is
+  capped at two rounds, mirroring every other loop bound in the file.
+- LIGHT also skips per-phase restore patches, and a slow suite may be
+  baselined on the packages the localization map names, recorded as scoped.
+- The fix-round CORRECTNESS re-dispatch no longer receives its previous
+  findings list (rule-2 contamination that converted a fresh look into
+  checklist confirmation); the orchestrator checks finding-by-finding
+  disposition itself, mechanically.
+
+Planning (confirmed gaps closed):
+
+- REQUIREMENT.md opens with the **verbatim TASK text and quoted acceptance
+  criteria** — previously reviewers could only ever see the agent's
+  restatement, making restatement errors structurally unreviewable; the
+  adversarial brief attacks divergence between the two.
+- The plan closes with an **acceptance-criterion → proving-phase map**, and a
+  gate bullet reads it.
+- The adversarial dispatch re-runs the **caller search behind the localization
+  map** — the map every blast-radius claim cites was previously verified by
+  nobody.
+- The tier gains a risk clause: real handling on the concurrency,
+  untrusted-input, migration or authorization coverage lines forces FULL
+  regardless of diff size.
+- Folds that alter a phase's file list, verify command or pass criteria are
+  flagged "changed since review" at the STOP; phase split threshold is a
+  number (five non-test files), not "a handful".
+
+Craft: the adversarial brief and CORRECTNESS brief are itemized (they were
+single multi-obligation sentences), the monolithic first gate bullet is three
+bullets (suite green / attribution / reuse), and duplicated rationale tails
+were trimmed.
+
 ## v18 — 2026-08-21
 
 **The installed task workflow prompt is right-sized and its gate made satisfiable.**
