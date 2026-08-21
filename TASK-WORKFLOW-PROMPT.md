@@ -17,16 +17,17 @@ the test, type-check, lint and build commands; git for diffs, blame and history;
 a subagent for every step marked INDEPENDENT; the app itself or a browser when
 the change is user-visible; a database or API client when the claim is about real
 data; docs or web search before assuming how a third-party library behaves.
-"I read it and it looks right" is not a check. Local or dev environments only,
-read-only outside the repos unless the task says otherwise, never production;
-redact tokens and personal data from any output you paste.
+"I read it and it looks right" is not a check. And SAFETY: local or dev
+environments only, read-only outside the repos unless the task says otherwise,
+never production; redact tokens and personal data from any output you paste.
 
 2. INDEPENDENT MEANS A SEPARATE DISPATCH — a subagent in a fresh context that has
 not seen your reasoning, never a second persona in this same turn. A different
 model if you can pick one. A dispatch may read the code repos, and is handed only
 the artifacts its step names; it is never given this conversation, PROGRESS.md,
 or another dispatch's return — those carry your reasoning, which is the thing its
-independence is protecting. Head each saved return with the line
+independence is protecting. Individual records a step names (TOOLING, BASE's
+dirty-file list) are excerpted and handed over — never PROGRESS.md itself. Head each saved return with the line
 `independence: dispatched — {model or agent id}`. If you cannot dispatch one,
 head the self-review `independence: not available — self-review only` and carry
 that item as UNVERIFIED rather than as reviewed.
@@ -51,27 +52,29 @@ already there rather than taking them again; the pre-existing-failure list is
 frozen at task start. Otherwise create
 wiki-{workspace-name}/tasks/{nnn}-{task-name}/, kebab-case, ticket ID right
 after the number when there is one, where {nnn} is one above the highest number
-present (an empty or new tasks/ starts at 001).
+present (an empty or new tasks/ starts at 001). That folder is {task-folder}
+below.
 
 Leave the work uncommitted throughout unless I ask for a commit, a branch or a PR.
 
 Open PROGRESS.md with two records, because later steps read them back:
-- BASE — `git -C {repo} rev-parse HEAD` and `git -C {repo} status --porcelain`
-  for the workspace itself if it is a git repo, and every git repo directly
-  under it except wiki-{workspace-name} — not just the ones you expect to
-  touch — plus any repo the task or plan names elsewhere, recorded the first
-  time it is named and before you edit it. A repo with no commits yet is
-  recorded `no BASE — empty repo`. In each repo whose porcelain shows it
-  dirty, snapshot that starting state now:
-  `git add -A -N && git diff > {task-folder}/phase-0-{repo}.patch &&
-  git reset -q`.
+- BASE — `git -C {repo} rev-parse HEAD` and `git -C {repo} status --porcelain`:
+  - for the workspace itself if it is a git repo, and every git repo directly
+    under it except wiki-{workspace-name} — not just the ones you expect to
+    touch — plus any repo the task or plan names elsewhere, recorded the first
+    time it is named and before you edit it;
+  - a repo with no commits yet is recorded `no BASE — empty repo`;
+  - in each repo whose porcelain shows it dirty, snapshot that starting state:
+    `git add -A -N && git diff > {task-folder}/phase-0-{repo}.patch &&
+    git reset -q`.
 - TOOLING — how tests, type checking, linting and the app are actually run.
   Fill it per repo the first time the plan's file list or an edit names that
   repo: find the real commands, do not assume them, and write `none` explicitly
   where one does not exist — the gate only asks for what this record names.
-  Run the test command once before your first edit in that repo and record any
-  failure by name. A slow suite may be baselined on just the packages the
-  localization map names — record `baseline scoped to {paths}`.
+  Run the test, type-check and lint commands once before your first edit in
+  that repo — scoped to the packages the localization map (UNDERSTAND, below)
+  names, or the full suite if you prefer; record any failure by name (this is
+  the pre-existing-failure list) and `baseline scoped to {paths}` when scoped.
 
 UNDERSTAND — write REQUIREMENT.md in the task folder as you go. It is the file
 every dispatch below receives as "the requirement": anything not in it does not
@@ -85,7 +88,7 @@ exist for your reviewers.
   ticket is linked, read it plus its parents and comments.
 - LOCALIZE before you plan: where does the change live? Record the files and
   symbols as path:line, their callers and consumers found by actual search, and
-  the repos implicated. The plan's phases cite this map.
+  the repos implicated — this is the localization map the plan's phases cite.
 - Restate the requirement in your own words, with its acceptance criteria and
   what is explicitly OUT of scope.
 - List the protected surfaces you must NOT touch (schema, public API
@@ -104,8 +107,9 @@ exist for your reviewers.
 PLAN: Write PLAN.md. State the chosen approach in two lines, and the strongest
 alternative you rejected with the one reason — the review attacks that choice
 too. Then numbered phases. A phase is the smallest change with its own runnable
-check; split any phase that crosses repos or exceeds five non-test files. Each
-phase names:
+check; split any phase that crosses repos or exceeds five non-test files.
+Order phases so each leaves every earlier phase's check still passing, with the
+riskiest phase as early as its dependencies allow. Each phase names:
 - what changes;
 - which files — including the test files you will add or change;
 - the exact command that verifies it, AND what its output must contain to count
@@ -143,12 +147,13 @@ non-test files, no protected surface and no dependency manifest, with no
 behavior-preserving phase — and none of the concurrency, untrusted-input,
 migration or authorization coverage lines carries a real handling (each is
 N/A). Anything else is FULL. LIGHT skips the adversarial dispatch below (the
-approval STOP is its review) and the per-phase restore patches.
+approval STOP is its review) and the per-phase restore patches; the STOP
+quotes those four tier-gating N/A lines verbatim, so my approval ratifies
+them.
 
 ADVERSARIAL REVIEW (FULL only): one INDEPENDENT dispatch, read-only, given
 PLAN.md and REQUIREMENT.md. Its verbatim return goes to
-wiki-{workspace-name}/tasks/{task-folder}/review-plan.md, with one PROGRESS.md
-line pointing at it.
+{task-folder}/review-plan.md, with one PROGRESS.md line pointing at it.
 
 Brief it to attack, not to approve: ask where the INCONSISTENCY is between the
 plan and the requirement, never whether the plan looks sound — the two framings
@@ -182,15 +187,19 @@ approval and any changes I request in PROGRESS.md. If a change of mine alters a
 phase's file list, verify command or pass criteria, that phase alone goes back
 through the adversarial dispatch (return saved as review-plan-2.md, and so on)
 and comes back to me with its findings before you build it; wording-only edits
-do not. Two such rounds are the budget — after that, remaining disagreement
-goes under OPEN RISKS and my explicit go-ahead stands in for further re-review.
+do not, and on a LIGHT plan my change is re-approved at the STOP itself — no
+dispatch. Two such rounds are the budget, and I can waive a round explicitly —
+after that, remaining disagreement goes under OPEN RISKS and my go-ahead
+stands in for further re-review.
 
 IMPLEMENT phase by phase.
 - A phase that adds or fixes behavior starts red: write its test from the
   requirement, run it, and paste the red output onto the phase's PROGRESS row
   before you implement — red on a missing import is not red on the assertion.
   A bug fix's repro may serve as that red: copy its command and output tail
-  onto the row.
+  onto the row. In a repo whose TOOLING test entry is `none`, record
+  `red: not available — no test command` on the row and carry the item as
+  UNVERIFIED.
 - Make the change. Run THIS phase's verify command and paste the green tail.
   Re-run an earlier phase's check only when this phase touched a file that
   phase named; the full suite's turn is the gate. A command that cannot run in
@@ -209,13 +218,15 @@ IMPLEMENT phase by phase.
   `git add -A -N && git diff > {task-folder}/phase-{n}-{repo}.patch &&
   git reset -q`.
 - A deviation that takes the diff outside LIGHT's bounds escalates the tier
-  now: record it, and put the updated plan through the adversarial dispatch
-  before the next phase.
+  now: record it, save the restore point in each touched repo, put the updated
+  plan through the adversarial dispatch, then STOP and present the escalation
+  with its findings before the next phase.
 - If two attempts at fixing a phase both fail, STOP and report rather than
   trying a third. Restore each touched repo: `git reset --hard {BASE}`, apply
   the newest phase patch (phase-0 at minimum for a repo that started dirty),
   and delete files the failed attempt created; a `no BASE` repo's patch is its
-  whole tree. A LIGHT task, having no patches, reports with the tree as-is.
+  whole tree. A LIGHT task skips only the per-phase patches: restore a repo
+  that started dirty from phase-0, otherwise report with the tree as-is.
 
 FINAL REVIEW: run `git add -A -N` in each repo BASE names, so untracked files
 appear, then diff the working tree against the BASE commits; a `no BASE` repo's
@@ -238,7 +249,8 @@ diff is its entire tree. Dispatch INDEPENDENT review:
   protected surfaces touched, requirements unmet, debris left behind — the
   plan is evidence of intent, not the standard. Save as review-conformance.md.
 
-Same disposition rules as the adversarial review; a deviation row or a BASE
+Same acceptance and rejection rules as the adversarial review — an accepted
+finding becomes a fix row below, never a plan edit; a deviation row or a BASE
 dirty-file line is also a quotable rejection ground. If a user-visible change
 was not yet exercised, run the end-to-end phase now and record what you saw; if
 the app cannot run here, write `app verification: not available — {reason}` and
@@ -249,13 +261,17 @@ calls; where a bullet allows a justification, that justification must already
 exist on a PROGRESS row:
 - wherever TOOLING names a test command and the repo's diff against BASE is
   non-empty, the full suite is green (command plus output tail), or its only
-  failures are the ones TOOLING recorded as pre-existing, quoted from that
-  record; type checking and linting likewise;
-- a failure not in TOOLING is re-run once: if it passes and the diff does not
-  touch its file, record it flaky on a PROGRESS row and treat it as
-  pre-existing; if it keeps failing, or the diff touches its file, stash the
-  work, run that one test at BASE, unstash, and let that result decide whose
-  it is — record which;
+  failures are pre-existing ones quoted from TOOLING (a `baseline scoped`
+  repo quotes at that same scope) or flaky ones quoted from a prior PROGRESS
+  row for a file the diff does not touch; type checking and linting likewise;
+- a failure with neither quote is re-run once: if it passes and the diff does
+  not touch its file, record it flaky on a PROGRESS row and treat it as
+  pre-existing; if it keeps failing, or the diff touches its file, decide it
+  at the starting state — `git reset -q`, `git stash -u`, re-apply phase-0
+  where one exists, run the failing tests (batch them all in one cycle), undo
+  the patch with `git checkout -- .`, `git stash pop` — and record whose each
+  failure is. A test absent at BASE is yours by definition, and in a `no BASE`
+  repo every failure is yours;
 - the newest green full-suite run may be cited instead of re-run when no edit
   followed it — the PROGRESS rows are the record;
 - every file in the diff is in the plan's named file list, has a deviation row
@@ -265,8 +281,9 @@ exist on a PROGRESS row:
   focused-test marker nor leaves one it added, absent a one-line justification
   on its PROGRESS row; code moved unchanged between files is not an addition,
   and a modified assertion is not a deleted one — say so on the row;
-- every phase the red-first rule covers has a red row recorded before its green
-  one; every behavior-preserving phase records `restored: yes`;
+- every phase the red-first rule covers has a red row (or its
+  `red: not available` line) recorded before its green one; every
+  behavior-preserving phase records `restored: yes`;
 - every PLAN.md coverage line carries a handling or an `N/A — {reason}`, and
   every acceptance criterion names the phase that proved it;
 - a user-visible change was exercised with what you saw on its row, or carries
@@ -274,9 +291,10 @@ exist on a PROGRESS row:
 - the tier still fits the actual diff; a diff that outgrew LIGHT without the
   mid-implementation escalation runs the CONFORMANCE dispatch now and records
   the skipped plan review under OPEN RISKS;
-- the review returns this tier's path required exist in the task folder, each
-  headed by its independence line, and every UNVERIFIED item carries its
-  verbatim `not available` line;
+- every review file this tier requires exists in the task folder —
+  review-correctness.md always, review-plan*.md unless LIGHT,
+  review-conformance.md when triggered — each headed by its independence line,
+  and every UNVERIFIED item carries its verbatim `not available` line;
 - in every repo you changed, the BASE commit is still an ancestor of HEAD
   (`no BASE` repos exempt); if not, STOP and report — history moved under you.
 

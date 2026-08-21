@@ -7,6 +7,60 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v20 — 2026-08-21
+
+**Third verified pass over the installed task workflow prompt: the seams the
+v19 mechanics opened, closed.** Same file, same install mechanism; no `init.md`
+change. The same six-lens cold-read + adversarial-verifier campaign, re-run on
+v19 by fresh contexts, confirmed the structure (cost and verification-economics
+lenses reached 4/5; every loop bounded) and surfaced narrow defects mostly in
+the machinery v19 itself added:
+
+- **Baseline covers type-check and lint too** — the gate demanded them clean
+  or "recorded as pre-existing", but SETUP only ever baselined the test
+  command, so any repo with ordinary pre-existing lint debt failed the gate.
+  Baselining scoped to the localization map's packages is now the sanctioned
+  default (full suite optional), and the gate quotes a `baseline scoped` repo
+  at that same scope — previously the scoping allowance produced failures the
+  gate had no clause for.
+- **The at-BASE attribution recipe is now mechanically correct**: `git reset
+  -q` first (intent-to-add entries break `git stash`), `git stash -u` (plain
+  stash strands untracked files), re-apply phase-0 where the repo started
+  dirty (else pre-existing-dirt failures pass clean at HEAD and misattribute
+  to the task), batch all unexplained failures into one stash cycle, a test
+  absent at BASE is the task's by definition, and a `no BASE` repo skips the
+  ritual — every failure there is the task's. A recorded flaky row is now
+  quotable at the gate re-run (before, a known flake re-failing after a fix
+  round re-entered triage every round).
+- **Red-first in a `none`-test repo** records `red: not available — no test
+  command` and carries UNVERIFIED, mirroring the app escape; the gate's
+  red-row bullet accepts that line.
+- **Mid-flight LIGHT escalation** now snapshots a restore point first (the
+  two-strike `reset --hard` path would otherwise destroy the completed LIGHT
+  phases, which saved no patches) and returns to the human with the
+  dispatch's findings instead of silently resuming — the approval contract
+  ("do not implement until I approve") holds through escalation.
+- Consistency: records handed to dispatches are excerpts, never PROGRESS.md
+  itself (rule 2's ban and the CORRECTNESS input list no longer collide);
+  final-review dispositions say explicitly that an accepted finding becomes a
+  fix row, never a post-hoc plan edit; `{task-folder}` is defined once at
+  SETUP and used uniformly; the localization map and pre-existing-failure
+  list are named at their producers; the garbled tier-returns bullet is
+  rewritten as an explicit per-tier file list; the LIGHT restore clause no
+  longer denies the phase-0 patch dirty-start repos own; a LIGHT plan's STOP
+  quotes the four tier-gating N/A lines verbatim so approval ratifies them
+  (the tier was otherwise self-certified by the same agent it exempts from
+  review); a human plan change on a LIGHT plan is re-approved at the STOP
+  itself; the human may waive a re-review round explicitly.
+- Planning: phases carry an ordering rule — each leaves every earlier phase's
+  check passing, riskiest first where dependencies allow.
+
+Deliberately not adopted, with the verifiers' agreement: per-phase commits
+(uncommitted-throughout is an owner contract), loosening the break-it proof on
+behavior-preserving phases (unique coverage evidence, already capped and
+scoped to named tests), widening LIGHT (its narrowness is the protection), and
+dropping CONFORMANCE's multi-repo trigger.
+
 ## v19 — 2026-08-21
 
 **Second adversarially-verified pass over the installed task workflow prompt.**
