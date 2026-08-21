@@ -7,6 +7,108 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v18 — 2026-08-21
+
+**The installed task workflow prompt is right-sized and its gate made satisfiable.**
+Same file, same install mechanism, same section arc; `init.md`'s one-line arc
+description is updated because the adversarial plan review is now tier-scoped.
+
+Why: in live use the prompt's tasks ran very long, and a five-lens adversarial
+audit (execution-cost simulation, gate satisfiability, logical consistency,
+planning quality, verification economics — each a cold-read dispatch) plus a
+best-practices sweep (ai-feature-delivery report, agent-papers corpus, current
+vendor guidance) agreed on the cause: two unbounded checking loops, a gate that
+was unsatisfiable on ~6 ordinary paths (teaching the agent to reinterpret it),
+and heavy ceremony applied uniformly regardless of risk. The evidence base is
+unambiguous that fresh-context review is a one-pass benefit, that every
+verification loop needs a hard cap and a fail branch, and that ceremony should
+tier by risk — while planning is where marginal rigor pays, so that side was
+strengthened, not trimmed.
+
+Loops bounded:
+
+- **The fix→gate→re-dispatch loop at FINAL REVIEW is capped at two rounds**,
+  then STOPs presenting the residual list — "never reinterpret a bullet to pass
+  it" is now the gate's explicit fail branch. The re-run CORRECTNESS dispatch
+  receives the fix's hunks plus its previous findings list, not the whole diff
+  again.
+- **Break-it retries are capped**: a named test still green after two break
+  attempts is recorded as a coverage gap, not retried forever.
+- **Cumulative per-phase re-verification is gone**: a phase runs its own check,
+  re-runs an earlier phase's check only when it touched a file that phase
+  named, and the full suite runs once — at the gate (which may cite the last
+  green run when `git status` shows no edits since).
+
+Gate made satisfiable (each was a hard contradiction before):
+
+- UNVERIFIED items no longer deadlock the gate: the bullet now requires each to
+  carry its verbatim `not available` line and appear under residual risk,
+  instead of demanding "nothing is left UNVERIFIED" while two earlier rules
+  mandate creating exactly that state.
+- Red-first is scoped to phases that add or fix behavior; a behavior-preserving
+  phase's proof is its post-change break-it (restore proven by re-running the
+  named tests green, not by `git diff`, which cannot distinguish the break from
+  the phase's own uncommitted change); characterization and end-to-end phases
+  are exempt by name. The gate bullet reads "every phase the red-first rule
+  covers".
+- The one-dispatch collapse (one context both given and not given the plan) is
+  replaced: one plan-blind CORRECTNESS dispatch always; a plan-aware
+  CONFORMANCE dispatch only when the diff touches a protected surface or an
+  in-scope exception, or spans repos. Return files are named
+  (review-correctness.md / review-conformance.md) so the gate's existence check
+  means something.
+- "The requirement" and "the protected-surfaces list" now physically exist:
+  UNDERSTAND writes REQUIREMENT.md (restatement + acceptance criteria,
+  out-of-scope, protected surfaces + in-scope exceptions, assumptions, OPEN
+  RISKS, repro output, localization map) and that file is what every dispatch
+  receives — previously those inputs lived only in the conversation, which
+  dispatches are forbidden.
+- A flaky-test path exists (re-run once; green + file untouched by the diff →
+  recorded flaky, treated as pre-existing); pre-existing dirty files are a
+  quotable escape on the file-list bullet; an empty repo diffs as its whole
+  tree and is exempt from the ancestor check; a successful dispatch records
+  `independence: dispatched — {id}` so the gate's per-return check has a
+  producer on the happy path; a post-gate fix's row counts as its deviation
+  row.
+
+Right-sizing:
+
+- **TIER rule**: LIGHT (one repo, ≤3 non-test files, no protected surface, no
+  dependency manifest, no behavior-preserving phase) skips the adversarial plan
+  dispatch — the approval STOP remains its review — and the gate re-checks the
+  tier against the actual diff, escalating a diff that outgrew it.
+- Break-it only on behavior-preserving phases: for additive phases red-first
+  already proves the assertion can fail; the prompt previously conceded this
+  ("the only proof" language) while mandating both everywhere.
+- TOOLING and its baseline suite run are taken lazily per repo the plan or an
+  edit names, instead of every repo up front; BASE stays universal (seconds,
+  and it is the diff anchor).
+- The app/browser exercise happens once, as the plan's end-to-end phase,
+  instead of per user-visible phase.
+
+Planning strengthened (the audit's highest-scoring area; gaps closed):
+
+- LOCALIZE before planning: files/symbols as path:line, callers and consumers
+  by actual search, repos implicated — recorded in REQUIREMENT.md and cited by
+  each phase's "what could break". Blast-radius analysis previously existed
+  only in the post-implementation CORRECTNESS brief.
+- The plan states its approach and the strongest rejected alternative; the
+  adversarial brief attacks that choice, verdicts every coverage-line N/A, and
+  is told a plan gap IS a finding (previously "do not propose extra scope"
+  could be read as suppressing omissions).
+- A phase-size rule (smallest change with its own runnable check), a mechanical
+  re-review trigger (file list / verify command / pass criteria changed —
+  wording-only edits do not re-dispatch), per-phase restore points
+  (phase-{n}-{repo}.patch) that make "restore to last green" and crashed-session
+  resume real, and a safety line (dev environments only, never production,
+  redact secrets).
+
+Trimmed: rule 4's incorrect claim about what the gate greps, the duplicated
+filing rule in SETUP, the doubled falsifiability rationale, the
+new-behavior gap demonstration (red-first shows the same absence), and the
+per-phase cumulative verification. The summary now also names AGENTS pages the
+diff made stale, closing the loop with `recheck diff`.
+
 ## v17 — 2026-08-19
 
 **The installed task workflow prompt's mandates are given consumers.** Same file,
