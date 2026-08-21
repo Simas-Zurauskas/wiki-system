@@ -7,6 +7,64 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v21 — 2026-08-21
+
+**Consolidation: the accreted machinery is removed rather than patched
+further.** Same file, same install mechanism; no `init.md` change. The fourth
+fresh-context review round (on v20) showed the pattern clearly: cost, logic,
+verification-economics and planning lenses all reached 4/5, while the two
+lenses still at 3 — gate satisfiability and over-engineering — were stuck on
+the same clusters of edge-case machinery that v18–v20 kept patching. The owner
+also drew the line explicitly: the prompt began as ~40 simple lines and must
+not become a confusing mess. So this version deletes the machinery that bred
+the defects instead of closing its seams again (~50 lines and ~20% of the
+words against v20), while keeping every loop bound, the tier, and all of the
+planning strength.
+
+Removed outright:
+
+- **The patch/restore apparatus** — phase-0 dirty snapshots, per-phase
+  `phase-{n}-{repo}.patch` files, the `reset --hard` + re-apply recipes, the
+  escalation-time snapshot, and every `no BASE`/dirty/LIGHT branch they
+  spawned. The two-failed-attempts rule now STOPs with the tree as-is and
+  lists exactly which files the failed attempt touched: a human is taking
+  over at that point anyway, and four review rounds in a row found new
+  mechanical defects in the self-restore recipes (stash breaking on
+  intent-to-add entries, `checkout -- .` unable to undo a patch's new files,
+  ordering bugs between patch-apply and untracked cleanup).
+- **The at-BASE stash adjudication dance** for ambiguous test failures. The
+  simple rule stands: an unexplained failure is re-run once; passing with its
+  file outside the diff means flaky/pre-existing; anything else is yours —
+  fix it or carry it to the STOP as residual. The elaborate arbitration
+  served a rare event and was found mechanically broken in different ways in
+  two consecutive rounds.
+- **Scoped baselines.** The baseline is the full test/type-check/lint run per
+  touched repo again; scoping saved minutes but created failures the gate had
+  no clause for (a trap two lenses confirmed independently).
+- **Four of the five restatements of the not-available/UNVERIFIED mechanic.**
+  Rule 3 now defines it once, generally — `{check}: not available — {reason}`
+  wherever the evidence would go, item carried as UNVERIFIED, accepted by the
+  gate, listed as residual risk — and every site (independence, red-first in
+  a `none`-test repo, app verification) just uses it. This also closes v20's
+  "only one narrow producer" finding: any unrunnable check now has the
+  escape, not just the enumerated ones.
+
+Kept deliberately, with the small confirmed fixes from round four: every loop
+cap and fail branch, the LIGHT/FULL tier (escalation now keyed to any LIGHT
+bound broken by an edit or deviation — "the diff" was a plan-property test a
+literal executor could not run mid-implementation), red-first with the repro
+allowed to stand as its red by pointer (copying it forward collided with rule
+3), the behavior-preserving break-it (unique evidence, capped, named tests
+only), one plan-blind CORRECTNESS dispatch always with CONFORMANCE on
+triggers, the deterministic gate (bullets shortened back to mechanical
+one-liners), and the full planning apparatus — verbatim TASK text, the
+localization map, acceptance-criterion mapping, the attack-framed brief which
+now also verdicts the decomposition and its ordering.
+
+Net: 313 → ~260 lines against v20, every remaining sentence either an
+instruction or the one record it produces, and no clause whose only job is to
+patch another clause.
+
 ## v20 — 2026-08-21
 
 **Third verified pass over the installed task workflow prompt: the seams the
