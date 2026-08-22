@@ -7,6 +7,175 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v23 — 2026-08-22
+
+**First behavioural evidence: ten real tasks, fifteen public repos.** Same file, same
+install mechanism; no `init.md` change. v18–v22 were desk reviews. This version is the
+first driven by *running* the prompt — a ten-task simulation campaign
+(`~/dev/ai/twp-sim/`, report at `twp-sim/REPORT.md`) executing the pinned v22 against
+cloned public repositories, from a two-line off-by-one in itsdangerous to a cross-repo
+feature over flask+werkzeug+click, with strict actor separation (a runner that never
+played the human, a separate operator agent holding only a persona brief, fresh contexts
+that had to rehydrate from disk), planted ground truth with an answer key, keyed and
+blind auditors, and an adversarial verifier that re-opened all 103 findings: 30
+CONFIRMED, 53 PARTIAL, 20 REFUTED → 37 SKILL_DEFECT, 37 RUN_FIDELITY, 19 NOT_A_DEFECT,
+10 HARNESS_ARTIFACT, collapsing to 19 distinct defects.
+
+Verdict: the prompt delivered a working uncommitted diff on the correct BASE in all ten
+tasks and nothing was ever committed. Its structural failure was that **it did not know
+how to stop**.
+
+The P0, and the reason for this version:
+
+- **The fix budget had no scope and no unit.** v19 capped fix rounds at two; the
+  campaign proved the cap binds only inside one STOP-to-STOP cycle. All three tasks that
+  reached the ceiling with a human turn after it crossed it — legally, and in writing.
+  Tenacity ran **six** CORRECTNESS dispatches against a ceiling of three (3,821s of
+  review wall-clock; its last round changed no code path); requests ran four. Four runs
+  independently invented the same "no code changed, no round consumed" carve-out. The
+  budget is now **for the whole task**, never resets "not at a STOP, not in a new
+  session, not when I hand a residual back", and **a round is any pass that edits the
+  tree after FINAL REVIEW began, whatever it edits**. The count is carried on the row.
+- **The prompt had no terminal state.** It ended at the summary and said nothing about
+  what a human reply does, so runs treated any reply as a reopening. Acceptance or
+  silence now means record DONE and stop — no re-gate, no further dispatch. A named
+  residual is "a new instruction and not a new budget": one bounded pass over what was
+  named, no new dispatch unless asked. (The campaign's own consolidated input proposed
+  that both budgets "start fresh" on a reply; that is precisely the reading that produced
+  the breaches, and it was rejected.)
+
+Other confirmed defects fixed here, each found by two or more independent auditors:
+
+- **Plan re-review triggered on WHO changed the plan, not WHAT changed** (D1 — 6
+  rediscoveries across 4 runs, the report's highest-severity defect). A *human* edit to a
+  phase's file list, verify command or pass criteria bought a full re-dispatch; the
+  agent's own fold of the same three properties bought only a "changed since review"
+  line at the STOP. So the widest possible edit — the agent rewriting the very approach
+  the adversarial dispatch had just condemned as unsound — got the cheapest treatment,
+  and on a FULL plan the thing that actually got built had never been reviewed. Run 10 is
+  the confirmed case: `review-plan.md:12` verdicts the approach unsound, `PLAN.md:495`
+  records the rewrite, every later HIGH lived in the fold-rewritten phase, and the human
+  had requested nothing. Now: a fold that rewrites a phase's approach, or that you
+  originated rather than took from the review, goes back through the same one-phase
+  dispatch a human change would — **inside the same two-round budget**, which is what
+  stops it recursing fold → dispatch → fold. A fold that merely implements a finding's
+  own prescribed remedy does not.
+- **Dispatch isolation was unenforceable** (2 auditors, both CONFIRMED): rule 2 granted
+  dispatches the wiki read-only, and SETUP puts the task folder — PLAN.md, PROGRESS.md,
+  every prior review — inside the wiki. Now excluded explicitly. Four briefs in one run
+  had hand-patched the hole while handing the dispatch an absolute path into that same
+  directory.
+- **A saved review only had to exist, not to match what shipped** (2 auditors): the gate
+  now requires each final-review return to name the diff it read and that diff to still
+  reproduce, or be re-run; and no edit may land while a dispatch holding your diff is
+  outstanding — if one does, regenerate the diff and re-dispatch. One run certified a
+  conformance review against a patch 205 insertions behind the tree that shipped.
+- **The invariants file was a blind spot** (keyed + blind on the same run): AGENTS pages
+  sit outside BASE, outside the diff and outside every gate bullet, so the mandated
+  invariants check could be satisfied by editing the thing it checks against. A gate
+  bullet now requires them unchanged since task start, or every change on a row.
+- **The gate left no trace** (CONFIRMED): its non-command bullets are now recorded as a
+  PROGRESS row — "a gate nobody can re-read was not a gate".
+- **Two HIGH defects escaped into delivered code**, both the same species: a false
+  sentence in shipped docs over correct-looking code (click's `--help-json` "stdout is
+  one JSON object", falsified by a group callback that echoes; tenacity's release note
+  promising *N* retries per window, measured at 3 in a 1.0s window against
+  `max_retries=2` — nine dispatches never raised it). The CORRECTNESS brief now asks,
+  for every guarantee the diff *states* about itself, for the case that would falsify it
+  and whether a test does.
+- Smaller, one clause each: the post-fix re-dispatch has a filename and the gate globs
+  `review-correctness*.md`; rule 3's never-copy-forward no longer contradicts the gate's
+  own cite-the-newest-green permission; `git add -A -N` is scoped to repos you changed;
+  a PROGRESS row is capped (~15 lines) and RESUME reads PLAN/REQUIREMENT in full but only
+  the tail of PROGRESS (one run wrote 808 record lines for a 109-line diff); an in-scope
+  exception is stated to *be* a protected surface; UNDERSTAND's stop-and-ask has a
+  presentation and record contract; the STOP presents decisions first; rule 1 gains a
+  concept of out-of-repo footprint; and rule 2 now names the separate-OS-process route
+  before the cannot-dispatch escape.
+
+**Edge-case and error-path planning** — a separate evidence pass over the ten plans and
+their delivered diffs (five analysts, graded plan-vs-diff as a design review, not as
+checklist compliance; mean 4.3/5, nine of ten COMPLETE). The finding was not that plans
+are happy-path sketches — where the checklist names a category, the plans produce
+concrete tested handling. It was that completeness held only inside the domain the agent
+had already imagined, and two classes escaped in all ten tasks:
+
+- **Nothing asked what the feature does when something IT CALLS fails.** No plan in ten
+  considered a caller-supplied function that throws, a dependency that raises, a
+  lazily-resolved subcommand that fails to import (turning click's `--help-json` into a
+  traceback on the exact `jq` pipeline the ticket existed for), or a suppressed redirect
+  falling through to 405 instead of the NotFound handler the requesting team asked for.
+  The cause was two words: "failure and rollback path" reads as *your* rollback, so five
+  of nine tasks put `git checkout` there. That line now also asks what the feature does
+  when something it calls fails or returns the unexpected — a caller-supplied function, a
+  dependency, a lazily-resolved thing, the clock.
+- **Acceptance criteria were positive-only.** "The phase and command that proves it" is
+  satisfied by a check that cannot fail — which is exactly how both HIGH defects reached
+  delivered code (a false self-claim over correct-looking code, one of them covered by a
+  test whose group body was a bare `pass`). Each criterion now also names the observation
+  that would appear if it were violated, and the gate reads that back.
+- The adversarial review attacked only coverage-line **N/As**; the corpus shows a
+  concrete-but-finite *handling* passing a genuinely independent dispatch and two further
+  rounds. It now attacks every coverage line, N/A or not, naming an input, a state, or a
+  failure of something the feature calls that the answer does not cover. Net zero length.
+
+Every miss in that corpus was a *value*, not a category — `max_age=0`, `name=123`,
+`per_seconds` as NaN/`True`/`"60"`/`memoryview(b"60")`. The candidate edit that would
+force each coverage line to name a triggering value and its origin was costed (+4 prompt
+lines, ~9 per plan) and deliberately deferred: it catches `max_age=0` but not NaN, and
+the owner's standing constraint is effectiveness without bloat. A per-phase failure-mode
+demand was refused outright — plans run 5-8 phases, so it multiplies by phase count and
+lands one answer in six places.
+
+Deliberately NOT changed, pending design work the report says not to rush: making plan
+re-review trigger on *what* changed rather than *who* changed it (the highest-severity
+defect, D1 — its fix must not recurse fold → dispatch → fold); excerpting REQUIREMENT.md
+so the CORRECTNESS dispatch's plan-blindness is real (4 auditors found REQUIREMENT.md
+defeats it); making TIER risk-aware; and the proportionality question of whether
+PROGRESS.md is a log or a handoff.
+
+What held under stress, and must not be cut: reproduce-before-plan (a run pasted a red
+whose traceback still contained the unfixed source), rule 4 (a run fixed broken code
+rather than delete the tests that caught it, citing the rule by name), SETUP/RESUME (a
+run was falsely told "nothing has been done yet", detected the contradiction from disk in
+seconds, and refused to re-plan approved work), and the independence rule — told falsely
+that dispatch was available, six runs found a legitimate out-of-process route and three
+wrote the honest `not available` line. **None faked a dispatch.**
+
+## v22 — 2026-08-21
+
+**Final-check closure on the consolidated prompt.** A targeted three-checker
+pass over v21 (contradiction/closure sweep, literal execution walk of both
+tiers, and a lost-protection diff against v20), findings adversarially
+verified, scored 4/5 on all three with no HIGH findings. Every confirmed item
+is fixed here — each a one-clause edit:
+
+- Three protections the v21 consolidation dropped by accident are restored:
+  the dispatches' read-only repo/wiki access grant in rule 2 (the review
+  briefs still require code search — without the grant, rule 2's
+  "handed only the artifacts its step names" read as forbidding it), the
+  cite-a-prior-green mechanism in gate bullet 1 (which "other repos' greens
+  stand" in the fix round silently depended on), and the flaky-row citation's
+  file-still-outside-the-diff guard.
+- Gate closure: a diff that outgrew LIGHT and was handled by the escalation
+  bullet keeps its LIGHT exemption in the review-files bullet (the two
+  bullets otherwise pointed opposite ways); the coverage-gap branch of
+  break-it now restores the line and records `restored: yes` (the gate
+  demanded it unconditionally); the justification-row qualifier is
+  front-loaded so it unambiguously covers assertion deletions, matching rule
+  4's sanctioned-change escape; the pre-existing-failure baseline also runs
+  before the gate first exercises a never-edited repo; TOOLING covers builds,
+  matching rule 1's tool list; the CORRECTNESS brief's invariants item is
+  conditional on the wiki existing, mirroring UNDERSTAND's fallback.
+- Execution-walk fixes: RESUME states the mid-phase rule (last PROGRESS row =
+  last completed step; edits beyond it belong to the interrupted phase —
+  verify or redo before continuing) and the pre-existing-failure-list freeze
+  is back; a behavior-preserving phase plans its break as file + symbol with
+  the exact line resolved at break time (the planned line's address does not
+  exist until the code moves); the phase-scoped re-review's inputs are
+  stated (full updated PLAN.md + REQUIREMENT.md, findings scoped to the
+  changed phase).
+
 ## v21 — 2026-08-21
 
 **Consolidation: the accreted machinery is removed rather than patched
