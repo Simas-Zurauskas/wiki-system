@@ -65,6 +65,17 @@ wiki-{workspace-name}/tasks/{nnn}-{task-name}/ — kebab-case, ticket ID right
 after the number when there is one, {nnn} one above the highest present (001
 for a new tasks/). That folder is {task-folder} below.
 
+In {task-folder}, PLAN.md, PROGRESS.md, REQUIREMENT.md and the review returns
+sit in the folder itself; everything else you write goes in a subfolder named
+for the kind of work — qa/ for repro and probe scripts, research/ for notes
+you take while reading, drafts/ for anything you write up: a ticket note, a
+dispatch brief, a record too long for a row, anything meant for me — the same
+kind under the same name each time, created when you first need it, and
+whatever needed a file points at it. That is where files live, not a
+substitute for the records: evidence a rule puts in REQUIREMENT.md still goes
+there, and a folder that is already flat keeps what is in it — put what you
+add from here on in the subfolders.
+
 Leave the work uncommitted throughout unless I ask for a commit, a branch or a
 PR.
 
@@ -235,7 +246,7 @@ IMPLEMENT phase by phase.
 - Append a row to PROGRESS.md: date, phase, verify command + output tail, and
   any deviation from the plan with a one-line why. Never rewrite past rows.
   A row is a record, not an essay: keep it under ~15 lines and put anything
-  longer in a file beside PLAN.md that the row points at.
+  longer in drafts/, with the row pointing at it.
 - An edit or deviation that breaks any LIGHT bound escalates the tier now:
   record it, put the updated plan through the adversarial dispatch, and STOP
   with its findings before the next phase.
