@@ -1,9 +1,9 @@
 # Task workflow prompt
 
-Copy everything below the line, fill in the TASK field, and paste it as the first
-message of a new agent session started in this workspace. Use it for work that
-spans more than one file or repo, or that you want reviewed before it lands —
-for a one-file change, just make the change.
+Copy everything below the line, fill in the TASK field, and paste it as the
+first message of a new agent session started in this workspace. Use it for
+work that spans more than one file or repo, or that you want reviewed before
+it lands — for a one-file change, just make the change.
 
 ---
 
@@ -19,9 +19,12 @@ the change is user-visible; a database or API client when the claim is about
 real data; docs or web search before assuming how a third-party library
 behaves. "I read it and it looks right" is not a check. And SAFETY: local or
 dev environments only, never production, and outside the repos and your task
-folder change nothing the task did not ask for; redact tokens and personal
-data from any output you paste. Anything you install, generate or leave
-behind outside a repo is yours to name in the final summary.
+folder change nothing the task did not ask for — the
+wiki-{workspace-name}/AGENTS pages above all, since a mandated check must not
+be satisfied by editing what it checks against; if the task truly needs one
+changed, put it on a PROGRESS row and quote the diff at the next STOP; redact
+tokens and personal data from any output you paste. Anything you install,
+generate or leave behind outside a repo is yours to name in the final summary.
 
 2. INDEPENDENT MEANS A SEPARATE DISPATCH — a subagent in a fresh context that
 has not seen your reasoning, never a second persona in this same turn. A
@@ -65,19 +68,27 @@ wiki-{workspace-name}/tasks/{nnn}-{task-name}/ — kebab-case, ticket ID right
 after the number when there is one, {nnn} one above the highest present (001
 for a new tasks/). That folder is {task-folder} below.
 
-In {task-folder}, PLAN.md, PROGRESS.md, REQUIREMENT.md and the review returns
-sit in the folder itself; everything else you write goes in a subfolder named
-for the kind of work — qa/ for repro and probe scripts, research/ for notes
-you take while reading, drafts/ for anything you write up: a ticket note, a
-dispatch brief, a record too long for a row, anything meant for me — the same
-kind under the same name each time, created when you first need it, and
-whatever needed a file points at it. That is where files live, not a
-substitute for the records: evidence a rule puts in REQUIREMENT.md still goes
-there, and a folder that is already flat keeps what is in it — put what you
-add from here on in the subfolders.
+In {task-folder}, PLAN.md, PROGRESS.md, REQUIREMENT.md, the review returns and
+the gate walks sit in the folder itself; everything else you write goes in a
+subfolder named for the kind of work — qa/ for repro and probe scripts,
+research/ for notes you take while reading, drafts/ for anything you write up:
+a ticket note, a dispatch brief, a record too long for a row, anything meant
+for me — the same kind under the same name each time, created when you first
+need it, and whatever needed a file points at it. That is where files live,
+not a substitute for the records: evidence a rule puts in REQUIREMENT.md still
+goes there, and a folder that is already flat keeps what is in it — put what
+you add from here on in the subfolders.
 
 Leave the work uncommitted throughout unless I ask for a commit, a branch or a
 PR.
+
+EVERY ROW, anywhere: ~300 characters of your own prose, pasted command output
+excluded. Keep only what re-running would not recover — a deviation and its
+why, the failure name the gate quotes, `broken: {path:line} — restored: yes`,
+the round count, what you saw. Longer goes in a file under the subfolder for
+its kind and the row points at it — never a justification the gate quotes:
+compress that onto the row. COUNT CHARACTERS, NOT LINES — a table row is one
+line however long — and the same holds for every "one line each" below.
 
 Open PROGRESS.md with two records, because later steps read them back:
 - BASE — `git -C {repo} rev-parse HEAD` and `git -C {repo} status --porcelain`
@@ -110,33 +121,38 @@ not exist for your reviewers.
   localization map the plan's phases cite.
 - Restate the requirement in your own words, with its acceptance criteria and
   what is explicitly OUT of scope.
-- List the protected surfaces you must NOT touch (schema, public API
-  signatures, auth flows — never infer scope from omission). Where the task
-  deliberately changes one, list it as an in-scope exception with exact
-  bounds, so reviewers do not report a sanctioned change as a violation.
+- List the protected surfaces (schema, public API signatures, auth flows —
+  never infer scope from omission). Touch none unless the task says so; where
+  it does, say which and with what exact bounds. A sanctioned change is still
+  a change: reviewers neither report it as a violation nor let it out of the
+  checks the surface earns.
 - List every assumption, and keep an OPEN RISKS section current from here on.
 - A bug fix reproduces the bug first and pastes the failing output into
   REQUIREMENT.md — never fix a bug you have not seen fail. A
   behavior-preserving change instead names the sites it collapses or the
   defect it removes, as path:line.
-- For small ambiguities choose a reasonable default and state it in
-  REQUIREMENT.md; for anything that materially changes design, cost or
-  behavior, STOP and ask me — the questions in one numbered list, each with
-  the option you would take by default, and record my answers in
-  REQUIREMENT.md before you plan.
+- A question you could settle by reading the code, the history or the ticket is
+  not a question — settle it. Finding facts is your job; deciding is mine. For
+  small ambiguities choose a reasonable default and state it in REQUIREMENT.md;
+  for anything that materially changes design, cost or behavior, STOP and ask
+  me — the questions in one numbered list, each with the option you would take
+  by default, and record my answers in REQUIREMENT.md before you plan.
 
 PLAN: Write PLAN.md. State the chosen approach in two lines and the strongest
 alternative you rejected with the one reason — the review attacks that choice
 too. Then numbered phases. A phase is the smallest change with its own
 runnable check; split any phase that crosses repos or exceeds five non-test
 files, and order phases so each leaves every earlier phase's check passing,
-riskiest first where dependencies allow. Each phase names:
+riskiest first where dependencies allow. A phase that leaves a caller-visible
+surface doing nothing — an exported name or flag callers can set and that is
+silently ignored until a later phase — names the phase that makes it live, and
+is never the last completed one. Each phase names:
 - what changes;
 - which files — including the test files you will add or change;
-- the exact command that verifies it AND what its output must contain to
-  count as a pass (a suite printing "0 tests found" is otherwise a pass). The
-  check comes from the requirement, never from the implementation restating
-  itself;
+- the exact command that verifies it AND what its output must contain to count
+  as a pass — a check that cannot fail has not proved anything, and a suite
+  printing "0 tests found" is otherwise a pass. The check comes from the
+  requirement, never from the implementation restating itself;
 - what could break, citing the localization map.
 
 A behavior-preserving phase also names every existing test covering that
@@ -162,19 +178,18 @@ Answer each of these in PLAN.md, one line each — how it is handled, or
 - how anyone would know this broke in production
 
 Close the plan with a line per acceptance criterion naming the phase and
-command that proves it AND the observation that would appear if the criterion
-were violated — a check that cannot fail has not proved it. Then a final
+command that proves it AND the observation that would appear if it were
+violated — a check that cannot fail has not proved it either. Then a final
 end-to-end phase — the exact command or in-app action and what you must
 observe, exempt from red-first.
 
 TIER: the plan is LIGHT when the diff will sit in one repo, touch at most 3
-non-test files, no protected surface (an in-scope exception is one — a
-sanctioned change to a protected surface is still a change to it) and no
-dependency manifest, with no
-behavior-preserving phase — and the concurrency, untrusted-input, migration
-and authorization coverage lines are all N/A. Anything else is FULL. LIGHT
-skips the adversarial dispatch below — the approval STOP is its review, and
-the STOP quotes those four N/A lines verbatim so my approval ratifies them.
+non-test files, no protected surface at all — sanctioned or not — and no
+dependency manifest, with no behavior-preserving phase, and the concurrency,
+untrusted-input, migration and authorization coverage lines are all N/A.
+Anything else is FULL. LIGHT skips the adversarial dispatch below — the
+approval STOP is its review, and the STOP quotes those four N/A lines verbatim
+so my approval ratifies them.
 
 ADVERSARIAL REVIEW (FULL only): one INDEPENDENT dispatch, read-only, given
 PLAN.md and REQUIREMENT.md; its verbatim return goes to
@@ -214,19 +229,24 @@ remedy does not: the plan that gets built must be a plan a reviewer has
 seen.
 
 STOP and present, decisions first: what you need from me, as a numbered list
-of questions each with the answer you would take by default, then the plan,
-the tier, the findings and their dispositions, the assumptions and the open
-questions. Do not implement until I approve; record
-my approval and any changes I request in PROGRESS.md. If a change of mine
-alters a phase's file list, verify command or pass criteria, that phase alone
-goes back through the adversarial dispatch — given the full updated PLAN.md
-and REQUIREMENT.md, briefed to report findings only on the changed phase,
-saved as review-plan-2.md, and so on — and returns to me with its findings
-before you build it — wording-only
-edits do not, a LIGHT plan re-approves at the STOP itself with no dispatch,
-and I can waive a round explicitly. Two such rounds are the budget for the
-whole task, and the same is true of the fix budget below; after that,
-remaining disagreement goes under OPEN RISKS and my go-ahead stands.
+of questions each with the answer you would take by default. Then an index, not
+a copy — the plan one line per phase, the tier, one line per finding with its
+disposition and the file holding it, the assumptions and the open questions.
+Anything already written down is pointed at, never restated; reproducing a
+return I can open charges me twice to read it. Quoted in full, not indexed: on
+a LIGHT plan the four N/A coverage lines, so my approval ratifies them;
+anything changed since review; the diff to any wiki-{workspace-name}/AGENTS
+page you changed. Do not implement until I approve; record my approval and any
+changes I request in PROGRESS.md. If a change of mine alters a phase's file
+list, verify command or pass criteria, that phase alone goes back through the
+adversarial dispatch — given the full updated PLAN.md and REQUIREMENT.md,
+briefed to report findings only on the changed phase, saved as
+review-plan-2.md, and so on — and returns to me with its findings before you
+build it — wording-only edits do not, a LIGHT plan re-approves at the STOP
+itself with no dispatch, and I can waive a round explicitly. Two such rounds
+are the budget for the whole task, and the same is true of the fix budget
+below; after that, remaining disagreement goes under OPEN RISKS and my
+go-ahead stands.
 
 IMPLEMENT phase by phase.
 - A phase that adds or fixes behavior starts red: write its test from the
@@ -245,8 +265,6 @@ IMPLEMENT phase by phase.
   line still broken.
 - Append a row to PROGRESS.md: date, phase, verify command + output tail, and
   any deviation from the plan with a one-line why. Never rewrite past rows.
-  A row is a record, not an essay: keep it under ~15 lines and put anything
-  longer in drafts/, with the row pointing at it.
 - An edit or deviation that breaks any LIGHT bound escalates the tier now:
   record it, put the updated plan through the adversarial dispatch, and STOP
   with its findings before the next phase.
@@ -278,12 +296,11 @@ anyway, regenerate the diff and re-dispatch. Dispatch INDEPENDENT review:
     a false sentence is the failure this bullet exists to catch.
   Save the return as review-correctness.md, and each later re-run as
   review-correctness-2.md, -3.md — the gate reads them all.
-- CONFORMANCE — only when the diff touches a protected surface or an
-  in-scope exception, or spans more than one repo. Given the diff, PLAN.md
-  and REQUIREMENT.md. Hunk by hunk: drift from the plan, out-of-scope
-  changes, protected surfaces touched, requirements unmet, debris left
-  behind — the plan is evidence of intent, not the standard. Save as
-  review-conformance.md.
+- CONFORMANCE — only when the diff touches a protected surface, sanctioned or
+  not, or spans more than one repo. Given the diff, PLAN.md and REQUIREMENT.md.
+  Hunk by hunk: drift from the plan, out-of-scope changes, protected surfaces
+  touched, requirements unmet, debris left behind — the plan is evidence of
+  intent, not the standard. Save as review-conformance.md.
 
 Same acceptance and rejection rules as the adversarial review — an accepted
 finding becomes a fix below, never a plan edit, and a deviation row or a BASE
@@ -326,14 +343,18 @@ exist on a PROGRESS row:
   line, and each final-review return names the diff it read and that diff
   still reproduces, or it is re-run; every UNVERIFIED item carries its
   `not available` line;
-- wiki-{workspace-name}/AGENTS pages are unchanged since task start, or every
-  change to them is on a PROGRESS row and named at the STOP — a mandated
-  check must not be satisfied by editing the thing it checks against;
+- wiki-{workspace-name}/AGENTS pages are unchanged since task start, or rule 1's
+  route was taken for every change to them;
 - in every repo you changed, BASE is still an ancestor of HEAD (`no BASE`
   exempt); if not, STOP and report — history moved under you.
 
-Record the walk itself as a PROGRESS row: each bullet, PASS or the reason,
-with the row or quote it rests on. A gate nobody can re-read was not a gate.
+The gate is a function of the diff, not of the session: where the diff is
+byte-identical to the one the newest walk passed — same sha256 across every
+repo — say so and that walk stands. Record the walk as `{task-folder}/gate-1.md`
+(`gate-2.md` on each re-walk): each bullet, PASS or the reason, with the row or
+quote it rests on, plus one PROGRESS row naming the file and the verdict. A
+gate nobody can re-read was not a gate; a gate copied into the record it reads
+back is that record's largest line item.
 
 Fix what the dispatches confirmed and whatever the gate itself found red —
 each fix is its own PROGRESS row, red-then-green on the row when it changes
@@ -352,9 +373,9 @@ a bullet to pass it.
 
 Then STOP and summarize: what each dispatch returned including the ones that
 found nothing, what was fixed, the residual risk — OPEN RISKS plus every
-UNVERIFIED item — what you did NOT check, anything you left outside the
-repos, and any wiki-{workspace-name}/AGENTS pages whose claims this diff
-makes stale.
+UNVERIFIED item — what you did NOT check, anything you left outside the repos,
+any wiki-{workspace-name}/AGENTS page you changed with its diff, and any whose
+claims this diff makes stale.
 
 That summary is the end of the task. If I accept it or say nothing, record
 DONE as the last PROGRESS row and stop — do not re-run the gate, do not

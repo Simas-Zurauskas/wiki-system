@@ -7,6 +7,136 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v24 — 2026-09-01
+
+**The record stops copying itself.** Same file, same install mechanism; no `init.md`
+change. A comparison of the prompt against Matt Pocock's `wayfinder` and its sibling
+skills, with the ten-task campaign (`~/dev/ai/twp-sim/`) as arbiter for every claim.
+Report at `~/dev/ai/twp-wayfinder-borrows.md`.
+
+**First, the housekeeping this entry also settles.** Commit `f26a4c6` (2026-08-27) changed
+`TASK-WORKFLOW-PROMPT.md` by +13/-1 — the `qa/` / `research/` / `drafts/` subfolder block
+in SETUP — with `VERSION` still reading 23 and no entry here, against this file's own rule
+at the top. That block is kept and is chronicled now; part of the 285 → 364 growth was
+unrecorded until this version.
+
+**The measurement that drove it.** v21 consolidated the prompt to 285 lines / 2,844 words
+on the owner's line that it "began as ~40 simple lines and must not become a confusing
+mess". v22 and v23 added 940 words back, leaving the file at 364 / 3,784 — **larger than
+the v20 state v21 was reacting to**. And the campaign's §7 item 22 was still open: whether
+`PROGRESS.md` is a log or a handoff, against a measured 12:1 record-to-code ratio on the
+*cheapest* task in the set.
+
+The borrow that answers it is `wayfinder`'s one transferable idea — *the map is an index,
+not a store; a decision lives in exactly one place and the map only gists it and links*.
+It is applied at the two surfaces where the record copies itself:
+
+- **The gate walk becomes `{task-folder}/gate-1.md`** (`gate-2.md` on each re-walk), named
+  at the folder root by SETUP alongside the review returns, with one PROGRESS row naming the
+  file and the verdict. v23's D8 fix mandated a walk that restates eleven bullets each
+  citing a row in the same file, rewritten on every re-gate — measured at 29.5% of run
+  01's PROGRESS.md (134 of 455 lines) and 40.1% of run 02's (25,567 B of 63,680 B), the
+  two LIGHT runs the report names as *"the prompt's two cheapest runs produced its two
+  heaviest records"*. Under pinned v22 the walk was optional and only 3 of 10 runs wrote
+  one, so that share is a forecast for the other seven. D8's property is kept intact — the
+  walk is still auditable and re-readable — and only its location moves, to the pattern
+  the adversarial-review return has used since v18. **`L294-295` is deliberately NOT
+  widened**: a justification still lives on a PROGRESS row, because that is what makes the
+  gate quotable. The walk is the record of the check, not a justification.
+- **The STOP presents an index, not a copy.** Measured: 484,443 B of STOP presentations
+  against 13,931 B of replies across the ten runs, 34.8:1; run 10's first STOP spends 97
+  of 272 lines restating a 56-line `review-plan.md` in the same folder. Three things stay
+  quoted in full — a LIGHT plan's four N/A coverage lines (v23 added that so the tier is
+  not self-certified), anything changed since review, and any AGENTS page changed.
+
+**The unit defect, which is not a borrow and which the campaign missed.** `L248-249`
+bounded a PROGRESS row at *"~15 lines"*. Nine of ten runs recorded in markdown tables,
+where a row is **one physical line of any length**: measured across all ten
+`PROGRESS.md` files, 743 rows, median 380 characters, maximum 2,867 — **every one
+compliant, with fourteen lines to spare**. `attrs` is 67,785 bytes in 111 lines. The bound
+is now **~300 characters of the agent's own prose, with pasted command output excluded** —
+the exclusion matters: a naive cap would evict gate evidence from the place the gate reads
+it. (Re-measured on review: characters inside backtick spans in table rows are **31.8%**,
+not the 62% first claimed. The bound holds regardless — median prose-only characters per
+row is **198**, while **41.1%** of the 811 rows breach ~300, so it bites the top two
+fifths and leaves a typical row alone.) A justification the gate quotes is compressed onto
+the row, never spilled to a file — otherwise the bound would defeat `L294-295`. The bound also moves out of the IMPLEMENT bullet list, where it governed only phase
+rows, to cover every row the prompt asks for, and it settles `L150`'s *"one line each"*
+(one run wrote 1,354 characters on one).
+
+Also in this version:
+
+- **`in-scope exception` is collapsed into `protected surface`** at all three sites. One
+  vocabulary, not two: a sanctioned change is still a change, so it neither reports as a
+  violation nor escapes the checks the surface earns. −3 lines and it closes the tier
+  loophole at the root rather than under v23's parenthetical. The CONFORMANCE trigger is
+  unchanged in coverage — v23 already read "a protected surface or an in-scope exception";
+  only the wording tightened.
+- **The AGENTS-pages prohibition moves into rule 1's SAFETY sentence.** UNDERSTAND sends
+  the agent to those pages 90 lines in; the only prohibition arrived 226 lines later inside
+  a checklist that opens "mechanical checks, not judgment calls". Rule 1 already covered it
+  ("outside the repos and your task folder change nothing the task did not ask for"); this
+  makes the implication explicit and shortens the gate bullet to a pointer. D4's ownership
+  question — draft-never-apply — stays open, as REPORT §7 item 16 asks.
+- **The gate is a function of the diff, not of the session.** Run 02 walked it five times
+  on a byte-identical diff, proving identity by sha256 each time; rounds 3, 4 and 5 changed
+  no code. A walk whose diff hashes the same now stands.
+- **`grilling`'s fact rule**, one clause at the only place the prompt asks: *a question you
+  could settle by reading the code, the history or the ticket is not a question — settle
+  it.* Run 01 asked four questions on a 38-line LIGHT diff and every answer was a
+  non-decision.
+- **The interrupted-phase risk**, one clause on the *ordering* rule rather than a per-phase
+  bullet: no phase may be left as the last completed one with a caller-visible surface that
+  does nothing. Real (httprouter's `review-plan.md` F7 found an exported policy field
+  callers can set and that is silently ignored) and it slips through the existing ordering
+  rule, since an inert field leaves every earlier check passing. **Deliberately not a
+  per-phase bullet** — v23 refused that shape outright because it multiplies by phase
+  count.
+- The *"a check that cannot fail has not proved it"* tautology is stated once and cited
+  once, instead of twice. The third statement of it — v23's guarantee-falsification bullet
+  in the CORRECTNESS brief — is **left alone**: it is the fix for the only two HIGH defects
+  that reached delivered code.
+
+**Refused, with the ground.** `to-tickets`' **expand–contract** for wide refactors: no task
+in ten was one, the largest diff is 8 mostly-additive files, and the widest mechanical
+fan-out fits inside the existing five-file cap — a clause for a case the corpus never
+produced is the "mechanism nobody would use" this project already rejects. **Recorded here
+as the known gap it is: the prompt mandates that every phase leave earlier checks passing,
+and that is not satisfiable for a genuinely wide mechanical refactor.** Also refused:
+disclosing the FULL-only lane behind a pointer (the prompt is a copy-paste artifact and
+`L104-106` contemplates a workspace with no generated wiki, so a required second file
+cannot exist); RESUME reading `PROGRESS.md` in full (files reach 79,716 B and a Read
+truncates); a per-phase deliverable bullet; `grilling`'s round-splitting *"ask it alone and
+wait"* (it adds the only uncapped human loop, on the axis §4 measures as a cost driver);
+and naming each phase (8 of 10 plans already do it unprompted).
+
+**What this version does not touch, and it is the larger number.** Dispatch is the dominant
+cost — ~13,000 s launched campaign-wide, ~50% of the two worst tasks, median ~460 s, poorly
+correlated with diff size. Everything above edits what gets written down, and the whole
+record prize is perhaps 2,000 s. The three levers that would move the real cost are
+unaddressed and remain open: **what LIGHT buys** (LIGHT ran at 25.5–33.6 s per changed line
+against FULL's 3.8–5.9 — it discounts one line item of eleven), **D5** (the CORRECTNESS
+dispatch's plan-blindness defeated by a 40,165-byte `REQUIREMENT.md`; the excerpt mechanism
+already exists in the file), and **D7/D11/D12** from REPORT §7. D5 is the one to do next.
+
+**Fixes applied before commit, from an assessment of this version against v23**
+(`~/dev/ai/twp-v24-vs-v23-assessment.md`), at no net line cost: the gate walk's filing
+contradicted SETUP's own "everything else goes in a subfolder" rule, so SETUP now names it;
+the row bound could have spilled a justification the gate demands on a row, now forbidden;
+the AGENTS clause asked for the *page* quoted in full at the plan-approval STOP, which
+precedes IMPLEMENT — it now asks for the *diff*, rule 1 says "the next STOP", and the final
+summary carries it; the inert-surface rule read as both a prohibition and a documentation
+duty, now stated as both explicitly; the acceptance-criteria line's "same bar" back-reference
+is self-contained again; three bullets lost their continuation indent and two lines were
+left unreflowed (one at 84 characters, past the file's 82 band), both restored; the eight
+markdown-bold spans — in a file that had **zero** through v23, four of them wrapping across
+a line break — are gone, leaving ALL-CAPS as the single emphasis device, with
+`COUNT CHARACTERS, NOT LINES` promoted to it.
+
+Net: 364 → 385 lines, 3,784 → 4,097 words. **This version adds 21 lines**, against a
+consolidation that removed 28 — three of its eight changes are new rules rather than
+relocations, and that is the honest cost. Anything further should be paid for by deletion.
+
 ## v23 — 2026-08-22
 
 **First behavioural evidence: ten real tasks, fifteen public repos.** Same file, same
