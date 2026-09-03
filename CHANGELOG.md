@@ -7,6 +7,41 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v25 — 2026-09-03
+
+**Coverage lines are proved, not claimed.** Same file, same install mechanism; no
+`init.md` change. A read of the v24 checking surface asked one question — does the
+prompt force edge cases and unhappy paths to be *tested*, not just *thought about*?
+The thinking was already forced three times over (nine PLAN coverage lines, the
+adversarial dispatch attacking each, the CORRECTNESS dispatch hunting error paths per
+function). The proving was not: a coverage line was answered in prose, and the gate
+only checked that the prose existed — so `invalid input: rejected with 400` could pass
+the whole workflow with no test behind it, while an acceptance criterion in the same
+plan had to name its phase, command and violation observation.
+
+Three edits, all reusing the acceptance-criterion shape rather than adding a concept:
+
+- **PLAN** — each coverage line now names how it is handled, the phase and command that
+  prove it, and the observation a mishandling would show, or `N/A — {reason}`; *a
+  handling with no command behind it is a claim, not coverage*.
+- **ADVERSARIAL REVIEW** — the coverage-line bullet also asks for a way the line's
+  command passes with the case mishandled, so the proof is attacked like every other
+  verify command.
+- **GATE** — the coverage-line bullet checks for the phase, command and violation
+  observation, not merely a handling.
+
+Unchanged by design: the LIGHT tier's four-N/A rule and its STOP quote, the red-first
+rule (one red per behavior phase — the edge-case tests ride in that phase's named test
+files), and the fixed nine-line list. Two absences were noted and left alone, on the
+v18 finding that instruction density is the prompt's enemy: nothing names large inputs
+or performance at scale, and the end-to-end phase exercises the happy path only — the
+adversarial dispatch's open-ended "name an input, a state, or a failure" is the
+designed backstop for both. The round budgets (two plan re-reviews, two fix rounds, two
+attempts per phase) were reviewed in the same pass and confirmed as loop caps, not
+effort caps.
+
+Size: 388 lines / 4,144 words (v24: 385 / 4,097).
+
 ## v24 — 2026-09-01
 
 **The record stops copying itself.** Same file, same install mechanism; no `init.md`

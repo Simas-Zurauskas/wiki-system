@@ -163,8 +163,10 @@ covers it, add a characterization test as its own phase first — green on
 unmodified code, exempt from red-first; the break above is what proves it
 bites.
 
-Answer each of these in PLAN.md, one line each — how it is handled, or
-"N/A — {reason}":
+Answer each of these in PLAN.md, one line each — how it is handled, the
+phase and command that prove it, and the observation that would appear if it
+were mishandled — or "N/A — {reason}". A handling with no command behind it
+is a claim, not coverage:
 - invalid input
 - empty and first-run state
 - concurrency and idempotency
@@ -203,7 +205,8 @@ framings return different findings. Have it:
 - attack each verify command: what input, state or sequence does it not
   handle, and how could it pass while the change is wrong?
 - attack every coverage line, N/A or not — name an input, a state, or a
-  failure of something the feature calls that its answer does not cover;
+  failure of something the feature calls that its answer does not cover, or
+  a way its command passes with the case mishandled;
 - attack any divergence between the verbatim TASK text and the restatement;
 - re-run the caller search behind the localization map — a caller it misses
   is a finding;
@@ -329,9 +332,9 @@ exist on a PROGRESS row:
   deleted one — say so on the row;
 - every phase the red-first rule covers has its red recorded before its green
   row; every behavior-preserving phase records `restored: yes`;
-- every coverage line carries a handling or an `N/A — {reason}`, and every
-  acceptance criterion names the phase that proved it and its violation
-  observation;
+- every coverage line carries an `N/A — {reason}` or a handling with its
+  phase, command and violation observation, and every acceptance criterion
+  names the phase that proved it and its violation observation;
 - a user-visible change was exercised, with what you saw on its row;
 - the tier still fits the work; a diff that outgrew LIGHT unescalated runs
   the CONFORMANCE dispatch now and records the skipped plan review under
