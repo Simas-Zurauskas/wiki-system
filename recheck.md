@@ -70,12 +70,13 @@ resolve per **present** repo:
   continue in diff scope independently. Never reconstruct a baseline from
   the prose `## Repositories` manifest or from memory — an unusable baseline
   means full scope, not a guessed diff.
-- **Run-level generator gate:** if the baseline file's `generator_version`
-  differs from this run's, **refuse diff mode** and tell the user to run a
-  full `recheck` — a prompt/model change shifts what counts as a defect, so
-  a diff scope would structurally miss newly-detectable issues (the same
-  logic as R1 step 1's `verify_breadth: all` preference). Do not silently
-  degrade.
+- **Generator-change advisory:** if the baseline file's `generator_version`
+  differs from this run's, continue in diff mode with the baseline normally.
+  Record the old and new generator strings in `decisions.md`, report the
+  mismatch in the run summary, and recommend a future full `recheck` as an
+  advisory. A prompt/model change can alter what counts as a defect, but it
+  must not override the user's requested scope or turn a cheap diff run into
+  a full audit.
 - Absent repos: unchanged partial-access rules (R1 step 5) — skipped
   entirely, baseline entries preserved verbatim.
 
@@ -245,10 +246,9 @@ Sequential and fast. No sub-agents.
      keep whatever their plan entry already has.
 6. **Load the diff baseline (diff mode only).** Read
    `wiki/.internal/recheck-baseline.yaml` and resolve each present repo to
-   diff scope or per-repo full fallback per § DIFF MODE "Baseline" —
-   including the run-level generator gate, which may refuse diff mode
-   outright. Plain recheck skips this step (the file is only written, at
-   R5.2).
+   diff scope or per-repo full fallback per § DIFF MODE "Baseline". A
+   generator mismatch is recorded as an advisory and does not change scope.
+   Plain recheck skips this step (the file is only written, at R5.2).
 
 ---
 
@@ -607,14 +607,13 @@ appeared or disappeared since the last run, refresh `README.md` for that line
 alone. The skill never creates, edits, or deletes `LINKS.md` itself, and never
 fetches what it links to (`SKILL.md` § Optional: external references).
 
-**The installed task workflow prompt is likewise NOT covered by that skip —
-refresh it on every run.** Reinstall `wiki/TASK-WORKFLOW-PROMPT.md` per
-`init.md` Phase 3e step 2: re-read the skill's `TASK-WORKFLOW-PROMPT.md`
-template, substitute every literal `wiki-{workspace-name}` with
-`meta.wiki_dir`, prepend the install-header, and replace the file wholesale —
-creating it when missing (wikis generated before v13). If an existing file's
-first line is NOT the install-header it is user-owned: leave it untouched and
-note the skip once in the run summary (valid opted-out state, not a failure).
+**The task workflow prompt is installed once and never overwritten.** Follow
+`init.md` Phase 3e step 2: when `wiki/TASK-WORKFLOW-PROMPT.md` is missing
+(wikis generated before v13, or a project that deleted it), install it from the
+skill's template; when it exists, leave its content untouched — it is the
+project's own. The only permitted write is swapping a pre-v26 header line for the
+current install-header; the only other output is one run-summary line when the
+skill's template changed since the version the header names.
 
 ### R5.3 Do NOT touch CLAUDE.md
 
@@ -678,11 +677,11 @@ Run these before reporting the run as complete. Subset of `init.md`
   "direct high-confidence rewrite" for the verifier pass is a spec violation. To
   reduce cost, narrow `verify_breadth` or run `recheck diff` (§ DIFF MODE — git
   scopes the verify set; it never substitutes for verification) — never skip R3.
-- **Diff mode never degrades silently.** Per-repo fallbacks, the run-level
-  generator refusal, and the ratio recommendation are all surfaced to the
-  user; a diff run must state which repos ran in diff scope, which fell
-  back, and why. R4/R4.3 run unchanged in diff mode — a smaller verify set
-  never loosens failure handling.
+- **Diff mode never degrades silently.** Per-repo fallbacks, generator-change
+  advisories, and the ratio recommendation are all surfaced to the user; a
+  diff run must state which repos ran in diff scope, which fell back, and
+  why. A generator mismatch never changes scope by itself. R4/R4.3 run
+  unchanged in diff mode — a smaller verify set never loosens failure handling.
 - The baseline (`wiki/.internal/recheck-baseline.yaml`) is written only at
   R5.2 (single-writer, like the decision log) and never reconstructed from
   the prose manifest, memory, or guesswork — an unusable baseline means

@@ -7,6 +7,43 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v27 — 2026-10-25
+
+**A generator change no longer blocks `recheck diff`.** Through v26, a mismatch
+between the baseline's skill/model string and the current run forced the operator
+into a full recheck. That policy made generator identity override the user's chosen
+scope and could turn a cheap drift check into an unexpectedly large audit.
+
+Diff mode now uses any otherwise-valid per-repo baseline normally. It records the
+old and new generator strings in `decisions.md`, surfaces the mismatch in the run
+summary, and recommends a future full recheck as an advisory only. Missing or
+unusable repo baselines still fall back to full scope per repo; the ratio guard and
+all verification/failure gates are unchanged.
+
+Changed: `recheck.md` (baseline handling, R1, constraints), `SKILL.md` (Mode 2
+summary), and `spec/plan-schema.md` (baseline field semantics).
+
+## v26 — 2026-10-21
+
+**The task workflow prompt is installed once and never overwritten.** Through v25,
+`init` and `recheck` replaced `wiki/TASK-WORKFLOW-PROMPT.md` wholesale on every run
+unless the project had deleted its install-header line — an opt-out nobody finds
+until a run has already thrown away their project's rules (in Repperoni, its task
+tracker and folder conventions). The prompt is a starting point each project adapts,
+so the default is now the safe one:
+
+- **Missing → installed** from the template, with a new install-header that names the
+  skill version and says the file is the project's own to edit.
+- **Present → never rewritten**, whatever its first line. The only write allowed is
+  swapping a pre-v26 header line (which promised a refresh) for the new header, written
+  as `v≤25`; the rest of the file is untouched.
+- **A newer template** is reported, not merged: when the header's version is below the
+  skill's and this changelog records a prompt change in between, the run summary says
+  which entries to compare by hand.
+
+Changed: `init.md` Phase 3e step 2 and its final gate, `recheck.md` R5, `SKILL.md`
+(Mode 2 summary, the surface list), `README.md` (the surfaces table).
+
 ## v25 — 2026-09-03
 
 **Coverage lines are proved, not claimed.** Same file, same install mechanism; no

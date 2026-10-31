@@ -1006,35 +1006,47 @@ written here.
 **Installed task workflow prompt — `wiki/TASK-WORKFLOW-PROMPT.md`.** The skill
 ships a paste-ready prompt (`TASK-WORKFLOW-PROMPT.md`, a skill file beside this
 `init.md`) that developers use to run larger agent tasks against this workspace
-(plan → adversarial review dispatched on the heavier tier → approval → phased
-implement with red-first evidence → dispatched final review over the diff plus
-a deterministic gate), with per-task folders under `wiki/tasks/` — user territory the skill never
+(thin house rules, not a process: own the ticket end to end, ask only for what
+only the user can give, leave work uncommitted, resumable NOTES.md plus qa/
+proof of every check, a status-first report), with per-task folders under
+`wiki/tasks/` — user territory the skill never
 touches
 (the prompt naming `tasks/` is one of only two sanctioned mentions of user
 territory in a generated file, the other being the `LINKS.md` pointer above;
-see `SKILL.md` § What this skill does NOT do). Install it at
-the docs root on every run:
+see `SKILL.md` § What this skill does NOT do). **Install it once, only when it
+is missing; never overwrite it.** The installed copy is a starting point the
+project adapts to its own tracker and house rules, so a later run that replaced
+it would silently throw those rules away.
+
+If `wiki/TASK-WORKFLOW-PROMPT.md` does not exist:
 
 1. Read the skill file `TASK-WORKFLOW-PROMPT.md`.
 2. Replace every literal occurrence of `wiki-{workspace-name}` with the
    resolved docs folder name (`meta.wiki_dir`, e.g. `wiki-acme`) — plain
    string replacement, not regex.
 3. Write the result to `wiki/TASK-WORKFLOW-PROMPT.md`, prepending this
-   **install-header** as its FIRST line, verbatim (deliberately NOT the
-   standard generated-header — this file has no `AUTOREGEN_SKIP` mechanism,
-   so its header must not promise skip-block survival):
+   **install-header** as its FIRST line, with `{N}` the skill's `VERSION`
+   (deliberately NOT the standard generated-header — this file is not
+   regenerated, so its header must not promise regeneration or skip blocks):
 
    ```
-   > _Installed by wiki-system — refreshed on every init/recheck run; do not edit here. To customize it for this project, delete this line: the file becomes user-owned and the skill will never touch it again._
+   > _Installed by wiki-system v{N} as a starting point. This file is the project's own: edit it freely; init and recheck never overwrite it._
    ```
 
-Replace the file wholesale on every `init`/`recheck` run — **unless** a file
-already exists at that path whose first line is NOT the install-header. Such a
-file is user-owned (a pre-existing hand-written prompt, or a project that took
-ownership by deleting the header line): leave it untouched, note the skip once
-in the run summary, and do not halt — this is a valid opted-out state, not a
-conflict to resolve. An installed (header-bearing) copy must contain zero
-remaining `wiki-{workspace-name}` occurrences.
+If the file exists — whatever its first line — **leave its content untouched**:
+it is the project's own, edited or not. Two notes only, never a rewrite:
+
+- **A pre-v26 header.** A first line that is the old install-header (`> _Installed
+  by wiki-system — refreshed on every init/recheck run; …_`) promises a refresh
+  that no longer happens. Replace that one line with the install-header above,
+  `{N}` written as `≤25`, and change nothing else in the file.
+- **A newer template.** When the header names a version below the skill's
+  `VERSION` and `CHANGELOG.md` records a change to `TASK-WORKFLOW-PROMPT.md`
+  between the two, say so once in the run summary — the versions and the
+  changelog entries to compare by hand. Never merge it yourself.
+
+A copy installed by this run must contain zero remaining
+`wiki-{workspace-name}` occurrences.
 
 **3. Cross-link + structural verification**
 
@@ -1413,11 +1425,10 @@ results come from Phase 3d's verifier sub-agents.
       init — suggest `/wiki-system claude` to (re)generate it.) The diff
       baseline `wiki/.internal/recheck-baseline.yaml` exists and every present
       repo's `verified_sha` matches its HEAD at finalize.
-- [ ] **Task workflow prompt.** `wiki/TASK-WORKFLOW-PROMPT.md` exists and
-      either opens with the install-header and contains zero remaining
-      `wiki-{workspace-name}` occurrences (installed copy), or its first line
-      is NOT the install-header (user-owned — a valid opted-out state that
-      passes this gate; Phase 3e step 2 left it untouched by design).
+- [ ] **Task workflow prompt.** `wiki/TASK-WORKFLOW-PROMPT.md` exists. A copy
+      installed by this run contains zero remaining `wiki-{workspace-name}`
+      occurrences; a copy that already existed is the project's own and is not
+      checked beyond its existence (Phase 3e step 2 never rewrites it).
 
 ---
 

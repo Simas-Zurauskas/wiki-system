@@ -471,8 +471,8 @@ schema_version: "1"          # this artifact's own version — independent of th
 updated_at: <ISO-8601 timestamp of the run that last wrote this file>
 generator_version: "wiki-system v<N> · <model-id>"
                              # generator of the run that last VERIFIED pages (not the
-                             # run that produced the plan). DIFF MODE's run-level
-                             # generator gate reads THIS field.
+                             # run that produced the plan). DIFF MODE reads this field
+                             # for an audit advisory; a mismatch does not change scope.
 repos:
   - name: <folder name>      # matches meta.repos[].name in plan.yaml
     verified_sha: <sha>      # git -C <repo> rev-parse HEAD at that run's finalize

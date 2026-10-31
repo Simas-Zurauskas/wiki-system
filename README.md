@@ -55,7 +55,7 @@ Only enabled tracks exist on disk — routing and `wiki/README.md` list only tra
 | Surface | Produced by | Verified? | Mutability |
 | --- | --- | --- | --- |
 | `wiki/README.md` | Orchestrator (finalize) | No | Auto-rewritten; hand-edit zones survive |
-| `wiki/TASK-WORKFLOW-PROMPT.md` | Orchestrator (finalize — installed from the skill template, `wiki-{workspace-name}` → real folder name) | No | Replaced every run; delete its install-header line to take ownership (skill then never touches it) |
+| `wiki/TASK-WORKFLOW-PROMPT.md` | Orchestrator (finalize — installed from the skill template, `wiki-{workspace-name}` → real folder name) | No | Installed once when missing, then the project's own: edit it freely; never overwritten |
 | `wiki/{AGENTS,TECHNICAL,PRODUCT}/**` | agents / technical / product writer | Yes (claim-by-claim) | Auto-rewritten; hand-edit zones survive |
 | `wiki/LINKS.md` | **The human** — optional, never written by the skill | No | Fully hand-owned, read-only input: `claude` copies its entries verbatim into `CLAUDE.md`; `README.md`/`AGENTS.md` link to it. The skill never fetches the URLs |
 | `CLAUDE.md` | `claude` mode only | No | Individual per dev, **not committed**; machine-generated + preserved `AUTOREGEN_SKIP` human zone |
