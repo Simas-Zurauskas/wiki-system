@@ -7,6 +7,47 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v30 — 2026-11-07
+
+**Make the optional engineering integration explicit.** The task prompt follows project guidance
+and its standalone rules whether or not eng-rulebook is available. Available eng-rulebook guidance
+supplements development without launching an audit; absence is not a blocker, verification gap,
+installation request or reason to search for another skill. Entry documentation states this boundary.
+No helper/schema changes; existing project task prompts remain untouched.
+
+## v29 — 2026-11-07
+
+**One lightweight, agent-focused wiki-system.** Adopts wiki-lite navigation and stdlib helpers;
+retires the PRODUCT/TECHNICAL generators, recursive LOC splitting, mandatory page spine,
+per-page verification, remote self-update preflight and exhaustive-claim promises. Only index
+and state are required; optional pages follow useful questions and size budgets are advisory.
+
+Adds update/update --full, check and context. Keeps recheck, recheck diff and claude aliases.
+The explicit schema-3 managed-page list preserves handwritten files; source capture binds
+freshness to dirty/untracked evidence, handles missing repos as partial and preserves old
+snapshots. Corrects extension-filtered freshness, nested-root assumptions and encoded-link
+selection. Structural checks, freshness and bounded semantic review remain distinct.
+
+Task prompt retains v28 improvements and points to the map index instead of requiring a fixed
+invariants page. Existing task prompts, policy/authority files and entry instructions remain
+project-owned. Context connects both Codex and Claude through small managed pointers. Adoption
+notes explain old output without an automatic migration framework or changes to live wikis.
+Wiki-lite discovery is retired only after validation; prior sources/evidence remain archived.
+
+## v28 — 2026-11-07
+
+**Align the task workflow template with proportional engineering guidance.**
+`TASK-WORKFLOW-PROMPT.md` routes development to the installed `eng-rulebook` without launching
+an audit, copying the library or requiring installation. It preserves necessary safety and
+compatibility work within the requested outcome, reuses existing test protection, and calls
+for contracts and fresh independent verification when changes are consequential. Ordinary
+details stay autonomous; unresolved consequential choices can be raised before dependent work.
+
+Evidence and decisions remain concise in the existing NOTES.md/qa structure. Task numbering,
+tracker traversal, documentation boundaries and uncommitted/unpushed delivery are unchanged.
+Progress updates do not end the task. Existing project copies remain user-owned and are never
+overwritten by init/recheck; only new installations receive this template automatically.
+
 ## v27 — 2026-10-25
 
 **A generator change no longer blocks `recheck diff`.** Through v26, a mismatch
