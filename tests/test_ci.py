@@ -134,5 +134,19 @@ class CiTests(MapFixture):
         self.assertEqual(status["model"]["total_cost_usd"], 2.01)
 
 
+    def test_repair_pass_cost_is_added(self):
+        self.change_source()
+        self.ci("prepare")
+        self.write(self.agents / "areas/old.md", MARKER + "# Old\nVersion two.\n")
+        self.result()
+        (self.work / "claude.json").write_text(json.dumps({"subtype": "success", "total_cost_usd": 0.2, "num_turns": 20}))
+        (self.work / "claude-repair.json").write_text(json.dumps({"subtype": "success", "total_cost_usd": 0.05, "num_turns": 4}))
+        self.ci("conclude")
+        model = self.status()["model"]
+        self.assertTrue(model["repair_pass"])
+        self.assertAlmostEqual(model["total_cost_usd"], 0.25)
+        self.assertEqual(model["num_turns"], 24)
+
+
 if __name__ == "__main__":
     unittest.main()

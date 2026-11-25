@@ -1,0 +1,60 @@
+# Reusable: tell a docs repo that a source repo's branch changed, so its wiki-system update runs.
+# Runs after the push and outside any pull request, so it cannot block a merge or a deploy.
+#
+# Caller (in each source repo):
+#   on: push (branches: [main])
+#   permissions: {}
+#   jobs.signal.uses: Simas-Zurauskas/wiki-system/.github/workflows/signal.yml@v1
+name: wiki-system signal
+
+on:
+  workflow_call:
+    inputs:
+      wiki-repo:
+        description: Name of the docs repo, in the same owner.
+        type: string
+        required: true
+      wiki-branch:
+        description: Branch that holds the docs repo's update workflow.
+        type: string
+        default: main
+      wiki-workflow:
+        description: File name of the docs repo's update workflow.
+        type: string
+        default: wiki-update.yml
+      app-client-id:
+        description: Client ID of the GitHub App installed on the docs repo with Actions write.
+        type: string
+        required: true
+    secrets:
+      app-private-key:
+        required: true
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Token for the docs repo
+        id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
+          repositories: ${{ inputs.wiki-repo }}
+          permission-actions: write
+
+      - name: Start the docs repo's update
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          WIKI: ${{ github.repository_owner }}/${{ inputs.wiki-repo }}
+          REF: ${{ inputs.wiki-branch }}
+          WORKFLOW: ${{ inputs.wiki-workflow }}
+          SOURCE: ${{ github.event.repository.name }}
+          SHA: ${{ github.sha }}
+        # The REST dispatch needs only Actions: write; `gh workflow run` would also need read access.
+        run: |
+          gh api "repos/$WIKI/actions/workflows/$WORKFLOW/dispatches" \
+            -f ref="$REF" -f "inputs[source]=$SOURCE" -f "inputs[sha]=$SHA"
+          echo "Started $WORKFLOW in $WIKI for $SOURCE $SHA"

@@ -1,0 +1,254 @@
+# Reusable: refresh a wiki-system map in the docs repo that calls it, push the result and, when
+# configured, set a property on the Notion cards whose pull requests the run covered.
+#
+# Caller (in the docs repo):
+#   on: workflow_dispatch (inputs source, sha, full, report)
+#   permissions: contents: write
+#   jobs.update.uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@v1
+# See README "CI" for the full caller and the per-project settings.
+name: wiki-system update
+
+on:
+  workflow_call:
+    inputs:
+      map:
+        description: Map directory inside the docs repo.
+        type: string
+        default: AGENTS
+      source:
+        description: Source repo whose merge started the run (used for reporting when planning fails).
+        type: string
+        default: ''
+      sha:
+        description: Merged commit in that repo (used for reporting when planning fails).
+        type: string
+        default: ''
+      full:
+        description: Revisit every documented area.
+        type: boolean
+        default: false
+      app-client-id:
+        description: Client ID of the GitHub App that can read the source repos.
+        type: string
+        required: true
+      model:
+        type: string
+        default: claude-sonnet-5-5
+      max-budget-usd:
+        type: string
+        default: '2'
+      max-turns:
+        type: string
+        default: '150'
+      notion-property:
+        description: Select property to set on linked Notion cards (Updated, No change, Failed). Empty turns reporting off.
+        type: string
+        default: ''
+      task-link-label:
+        description: Line in a pull request description that carries the Notion page URL.
+        type: string
+        default: 'Notion task:'
+    secrets:
+      anthropic-api-key:
+        required: true
+      app-private-key:
+        required: true
+      notion-token:
+        required: false
+    outputs:
+      status:
+        value: ${{ jobs.update.outputs.status }}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One run at a time per docs repo. Each run covers everything from the map's baseline to the
+    # current source heads, so a pending run that GitHub replaces is still covered by the next one.
+    concurrency:
+      group: wiki-system-update-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write # push the refreshed map to the calling docs repo
+    outputs:
+      status: ${{ steps.final.outputs.status }}
+    env:
+      WIKI_DIR: ${{ github.event.repository.name }}
+    steps:
+      - name: Check out the docs repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ${{ github.event.repository.name }}
+          persist-credentials: false
+
+      - name: List source repos
+        id: sources
+        env:
+          STATE: ${{ github.event.repository.name }}/${{ inputs.map }}/.state.json
+        run: |
+          python3 - "$STATE" >> "$GITHUB_OUTPUT" <<'EOF'
+          import json, sys
+          repos = [r for r in json.load(open(sys.argv[1]))["repos"] if r != "."]
+          print("repos=" + ",".join(repos))
+          EOF
+
+      - name: Token for the source repos
+        id: app
+        if: steps.sources.outputs.repos != ''
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.app-private-key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.sources.outputs.repos }}
+          permission-contents: read
+          permission-pull-requests: read
+
+      - name: Refresh the map
+        id: wiki
+        uses: Simas-Zurauskas/wiki-system@v34
+        with:
+          map: ${{ github.event.repository.name }}/${{ inputs.map }}
+          anthropic-api-key: ${{ secrets.anthropic-api-key }}
+          source-owner: ${{ github.repository_owner }}
+          source-token: ${{ steps.app.outputs.token }}
+          full: ${{ inputs.full }}
+          model: ${{ inputs.model }}
+          max-budget-usd: ${{ inputs.max-budget-usd }}
+          max-turns: ${{ inputs.max-turns }}
+
+      - name: Keep the run log
+        if: always() && steps.wiki.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wiki-update-${{ github.run_id }}
+          path: ${{ runner.temp }}/wiki-ci/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publish
+        id: publish
+        if: steps.wiki.outputs.status == 'updated' || steps.wiki.outputs.status == 'no_change'
+        env:
+          TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.wiki.outputs.status }}
+          SUMMARY: ${{ steps.wiki.outputs.summary }}
+          RANGES: ${{ steps.wiki.outputs.ranges }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          cd "$WIKI_DIR"
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing to publish"; exit 0; fi
+          python3 - > "$RUNNER_TEMP/message.txt" <<'EOF'
+          import json, os
+          kind = "update" if os.environ["STATUS"] == "updated" else "advance baseline"
+          ranges = json.loads(os.environ["RANGES"] or "{}")
+          covered = ", ".join(f"{repo} {(r.get('from') or '')[:7]}..{r['to'][:7]}" for repo, r in ranges.items())
+          print(f"Wiki: {kind} for {covered}" if covered else f"Wiki: {kind}")
+          print()
+          print(os.environ["SUMMARY"])
+          print()
+          print("Run: " + os.environ["RUN_URL"])
+          EOF
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -F "$RUNNER_TEMP/message.txt"
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
+          for attempt in 1 2; do
+            if git -c http.https://github.com/.extraheader="$AUTH" push -q origin "HEAD:$BRANCH"; then exit 0; fi
+            echo "Push rejected; rebasing onto the new $BRANCH (attempt $attempt)"
+            git -c http.https://github.com/.extraheader="$AUTH" pull -q --rebase origin "$BRANCH" || { git rebase --abort || true; exit 1; }
+          done
+          exit 1
+
+      - name: Final status
+        id: final
+        if: always()
+        env:
+          WIKI_STATUS: ${{ steps.wiki.outputs.status }}
+          PUBLISH: ${{ steps.publish.outcome }}
+          WIKI_REASON: ${{ steps.wiki.outputs.reason }}
+        run: |
+          status="${WIKI_STATUS:-failed}"; reason="$WIKI_REASON"
+          if [ "$PUBLISH" = "failure" ]; then status=failed; reason="the refreshed map could not be pushed"; fi
+          [ -n "$reason" ] || [ "$status" != "failed" ] || reason="the run stopped before the map was refreshed"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "reason=$(printf '%s' "$reason" | tr '\n' ' ' | cut -c1-400)" >> "$GITHUB_OUTPUT"
+          echo "Wiki update: $status${reason:+ ($reason)}"
+
+      - name: Report on Notion cards
+        if: always() && inputs.notion-property != '' && steps.app.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          NOTION_TOKEN: ${{ secrets.notion-token }}
+          PROPERTY: ${{ inputs.notion-property }}
+          LINK_LABEL: ${{ inputs.task-link-label }}
+          OWNER: ${{ github.repository_owner }}
+          STATUS: ${{ steps.final.outputs.status }}
+          REASON: ${{ steps.final.outputs.reason }}
+          RANGES: ${{ steps.wiki.outputs.ranges }}
+          SOURCE: ${{ inputs.source }}
+          SHA: ${{ inputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, re, subprocess, urllib.request
+
+          env = os.environ
+          if not env.get("NOTION_TOKEN"):
+              raise SystemExit("notion-token not set; skipping card reporting")
+          status = env["STATUS"] if env["STATUS"] in ("updated", "no_change", "failed") else "failed"
+          label = {"updated": "Updated", "no_change": "No change", "failed": "Failed"}[status]
+          ranges = json.loads(env.get("RANGES") or "{}")
+          if not ranges and env.get("SOURCE") and env.get("SHA"):
+              ranges = {env["SOURCE"]: {"from": None, "to": env["SHA"]}}
+
+          def gh(path):
+              out = subprocess.run(["gh", "api", path], capture_output=True, text=True)
+              return json.loads(out.stdout) if out.returncode == 0 else None
+
+          marker = env["LINK_LABEL"].lower()
+          pages = set()
+          for repo, r in ranges.items():
+              shas = [r["to"]]
+              if r.get("from") and r["from"] != r["to"]:
+                  compare = gh(f"repos/{env['OWNER']}/{repo}/compare/{r['from']}...{r['to']}") or {}
+                  shas = [c["sha"] for c in compare.get("commits", [])] or shas
+              for sha in shas:
+                  for pr in gh(f"repos/{env['OWNER']}/{repo}/commits/{sha}/pulls") or []:
+                      for line in (pr.get("body") or "").splitlines():
+                          if marker in line.lower():
+                              ids = re.findall(r"[0-9a-f]{32}", line.replace("-", ""))
+                              if ids:
+                                  pages.add(ids[-1])
+          print(f"{env['PROPERTY']}={label} for {len(pages)} card(s)")
+
+          def notion(method, path, body):
+              req = urllib.request.Request(
+                  "https://api.notion.com/v1/" + path, data=json.dumps(body).encode(), method=method,
+                  headers={"Authorization": "Bearer " + env["NOTION_TOKEN"], "Notion-Version": "2026-03-11",
+                           "Content-Type": "application/json"})
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  return resp.status
+
+          for page in sorted(pages):
+              try:
+                  notion("PATCH", f"pages/{page}", {"properties": {env["PROPERTY"]: {"select": {"name": label}}}})
+                  if status == "failed":
+                      reason = env.get("REASON") or "unknown reason"
+                      notion("POST", "comments", {"parent": {"page_id": page}, "rich_text": [
+                          {"type": "text", "text": {"content": f"Wiki update failed: {reason}. Run: "}},
+                          {"type": "text", "text": {"content": env["RUN_URL"], "link": {"url": env["RUN_URL"]}}}]})
+                  print(f"  {page}: {label}")
+              except Exception as exc:  # one card's failure must not hide the others
+                  print(f"::warning::could not update card {page}: {exc}")
+          EOF
+
+      - name: Mark the run failed
+        if: always() && steps.final.outputs.status == 'failed'
+        env:
+          REASON: ${{ steps.final.outputs.reason }}
+        run: |
+          echo "::error::Wiki update failed: $REASON"
+          exit 1

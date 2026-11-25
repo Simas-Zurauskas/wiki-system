@@ -158,17 +158,25 @@ def read_result(work):
 
 
 def model_report(work):
-    """Cost and stop reason from `claude -p --output-format json`, when the wrapper saved it."""
-    path = work / "claude.json"
-    try:
-        data = json.loads(path.read_text())
-    except (OSError, ValueError):
-        return None
-    if isinstance(data, list):  # stream/verbose output: the result message is last
-        data = next((m for m in reversed(data) if isinstance(m, dict) and m.get("type") == "result"), {})
-    if not isinstance(data, dict):
-        return None
-    return {key: data.get(key) for key in ("subtype", "is_error", "num_turns", "total_cost_usd")}
+    """Cost and stop reason from `claude -p --output-format json`: the main run plus any repair pass."""
+    report = None
+    for name in ("claude.json", "claude-repair.json"):
+        try:
+            data = json.loads((work / name).read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, list):  # stream/verbose output: the result message is last
+            data = next((m for m in reversed(data) if isinstance(m, dict) and m.get("type") == "result"), {})
+        if not isinstance(data, dict):
+            continue
+        if report is None:
+            report = {key: data.get(key) for key in ("subtype", "is_error", "num_turns", "total_cost_usd")}
+            continue
+        report["repair_pass"] = True
+        report["subtype"], report["is_error"] = data.get("subtype"), data.get("is_error")
+        for key in ("num_turns", "total_cost_usd"):
+            report[key] = (report.get(key) or 0) + (data.get(key) or 0)
+    return report
 
 
 def conclude(agents, root, work):

@@ -19,21 +19,70 @@ to helpers. Custom nested/external documentation destinations are valid.
 
 ## CI
 
-`action.yml` refreshes a map unattended, for example after every merge. The project owns the workflow,
-the commit and any tracker update; the action owns only the refresh. It clones the source repos named
-in `.state.json` (missing ones become unavailable and the run partial), plans without a model, runs
-Claude Code headless only when source or structure needs it, then validates and finalizes. Outputs:
-`status` (`updated`, `no_change`, `failed`), `summary`, `reason`, `pages`, `ranges` and `cost-usd`.
+Projects reuse two workflows from this repo and pass settings only, so a fix here reaches every
+project. Reference `@v1` (moved to each release) to receive updates, or a release tag such as `@v34`
+to pin. The pieces underneath, `action.yml` and `scripts/ci_run.sh`, can also be used directly.
+
+- `.github/workflows/update.yml`, called from the **docs repo**: clones the source repos named in
+  `.state.json` with a GitHub App token, plans without a model, runs Claude Code headless only when
+  source or structure needs it, gives structure errors one repair pass, validates, pushes the map,
+  and optionally sets a select property on the Notion cards whose pull requests it covered (a
+  `Failed` result also comments the reason). Runs are serialized per docs repo; each covers the
+  baseline-to-head range, so a replaced pending run loses nothing. The run log is kept as a 7-day artifact.
+- `.github/workflows/signal.yml`, called from each **source repo** on push: starts the docs repo's
+  update through the REST dispatch API. It never blocks a merge or deploy.
+
+Docs repo caller (`.github/workflows/wiki-update.yml`):
 
 ```yaml
-- uses: Simas-Zurauskas/wiki-system@<commit>
-  id: wiki
-  with:
-    map: wiki-acme/AGENTS            # checked out beside the source repos
-    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
-    source-owner: ${{ github.repository_owner }}
-    source-token: ${{ steps.app.outputs.token }}   # read access to the source repos
+on:
+  workflow_dispatch:
+    inputs: {source: {default: ''}, sha: {default: ''}, full: {type: boolean, default: false}}
+permissions: {contents: write}
+jobs:
+  update:
+    if: vars.WIKI_AUTO_UPDATE != 'false'
+    uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@v1
+    with:
+      source: ${{ inputs.source }}
+      sha: ${{ inputs.sha }}
+      full: ${{ inputs.full }}
+      app-client-id: ${{ vars.WIKI_APP_CLIENT_ID }}
+      notion-property: Wiki            # optional; omit to skip card reporting
+    secrets:
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+      app-private-key: ${{ secrets.WIKI_APP_PRIVATE_KEY }}
+      notion-token: ${{ secrets.NOTION_TOKEN }}   # optional
 ```
+
+Source repo caller (`.github/workflows/wiki-signal.yml`):
+
+```yaml
+on: {push: {branches: [main]}}
+permissions: {}
+jobs:
+  signal:
+    if: vars.WIKI_REPO != ''
+    uses: Simas-Zurauskas/wiki-system/.github/workflows/signal.yml@v1
+    with: {wiki-repo: ${{ vars.WIKI_REPO }}, app-client-id: ${{ vars.WIKI_APP_CLIENT_ID }}}
+    secrets: {app-private-key: ${{ secrets.WIKI_APP_PRIVATE_KEY }}}
+```
+
+Per-project setup. Repository-level secrets and variables work on every plan, including private
+repos on GitHub Free, where organization secrets are not available to them.
+
+| Where | Name | Value |
+| --- | --- | --- |
+| GitHub App | one per organization | Repository permissions Contents read, Pull requests read, Actions write; installed on the docs repo and each source repo |
+| Docs repo | `WIKI_APP_CLIENT_ID` variable, `WIKI_APP_PRIVATE_KEY` secret | The app's client ID and private key |
+| Docs repo | `ANTHROPIC_API_KEY` secret | API key used by the model step only |
+| Docs repo | `NOTION_TOKEN` secret (optional) | Notion connection with update content and insert comments, shared with the tasks database |
+| Docs repo | `WIKI_AUTO_UPDATE` variable (optional) | `false` pauses the updates |
+| Each source repo | `WIKI_REPO` variable | Docs repo name; unset to stop signalling |
+| Each source repo | `WIKI_APP_CLIENT_ID`, `WIKI_APP_PRIVATE_KEY` | Same app |
+
+Adding a source repo: map it in the docs repo (`.state.json` `repos`), install the app on it and give
+it the signal caller and its three settings. The update workflow picks the repo list from state.
 
 Safety comes from the wrapper, not the prompt: Claude runs in a scrubbed environment with only the API
 key, `--bare`, `dontAsk` permissions, edits limited to the map, read-only shell commands, no network

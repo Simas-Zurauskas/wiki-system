@@ -20,7 +20,7 @@ CI_PY=(python3 -B "$SKILL/scripts/ci.py")
 
 full=()
 [ "${WIKI_FULL:-false}" = "true" ] && full=(--full)
-rm -f "$WORK/result.json" "$WORK/claude.json" "$WORK/status.json"
+rm -f "$WORK/result.json" "$WORK/claude.json" "$WORK/claude-repair.json" "$WORK/claude.stderr" "$WORK/status.json"
 
 if ! "${CI_PY[@]}" prepare "$MAP" --root "$ROOT" --work "$WORK" ${full[@]+"${full[@]}"}; then
   exit 1  # prepare wrote status.json with the reason
@@ -45,20 +45,36 @@ Work directory: ${WORK} (read brief.md there; write result.json there)"
   # Paths in permission rules: a leading // is absolute.
   CLEAN_HOME="$(mktemp -d)"
   CLAUDE_BIN="$(command -v claude)"
-  (cd "$ROOT" && env -i HOME="$CLEAN_HOME" PATH="$PATH" LANG="${LANG:-C.UTF-8}" TMPDIR="${TMPDIR:-/tmp}" \
-    ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" "$CLAUDE_BIN" -p "$prompt" \
-    --bare --model "$MODEL" --max-turns "$TURNS" --max-budget-usd "$BUDGET" \
-    --output-format json --no-session-persistence --permission-mode dontAsk \
-    --add-dir "$SKILL" --add-dir "$WORK" \
-    --tools "Read,Glob,Grep,Edit,Write,Bash" \
-    --allowedTools "Read" "Glob" "Grep" \
-      "Edit(/${MAP}/**)" "Write(/${MAP}/**)" "Edit(/${WORK}/result.json)" "Write(/${WORK}/result.json)" \
-      "Bash(python3 -B ${SKILL}/scripts/check.py *)" "Bash(ls *)" "Bash(grep *)" \
-      "Bash(git -C * diff *)" "Bash(git -C * log *)" "Bash(git -C * show *)" \
-      "Bash(git -C * ls-files *)" "Bash(git -C * status *)" \
-    --disallowedTools "Agent" "WebFetch" "WebSearch" \
-    > "$WORK/claude.json" 2> "$WORK/claude.stderr")
-  echo "claude exit=$?"
+  run_claude() {  # $1 prompt, $2 budget, $3 output file
+    (cd "$ROOT" && env -i HOME="$CLEAN_HOME" PATH="$PATH" LANG="${LANG:-C.UTF-8}" TMPDIR="${TMPDIR:-/tmp}" \
+      ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" "$CLAUDE_BIN" -p "$1" \
+      --bare --model "$MODEL" --max-turns "$TURNS" --max-budget-usd "$2" \
+      --output-format json --no-session-persistence --permission-mode dontAsk \
+      --add-dir "$SKILL" --add-dir "$WORK" \
+      --tools "Read,Glob,Grep,Edit,Write,Bash" \
+      --allowedTools "Read" "Glob" "Grep" \
+        "Edit(/${MAP}/**)" "Write(/${MAP}/**)" "Edit(/${WORK}/result.json)" "Write(/${WORK}/result.json)" \
+        "Bash(python3 -B ${SKILL}/scripts/check.py *)" "Bash(ls *)" "Bash(grep *)" \
+        "Bash(git -C * diff *)" "Bash(git -C * log *)" "Bash(git -C * show *)" \
+        "Bash(git -C * ls-files *)" "Bash(git -C * status *)" \
+      --disallowedTools "Agent" "WebFetch" "WebSearch" \
+      > "$3" 2>> "$WORK/claude.stderr")
+    echo "claude exit=$?"
+  }
+  run_claude "$prompt" "$BUDGET" "$WORK/claude.json"
+
+  # One repair pass: structure errors after the edits get a short, targeted follow-up run.
+  if [ -f "$WORK/result.json" ] && ! python3 -B "$SKILL/scripts/check.py" "$MAP" --root "$ROOT" --structure-only > "$WORK/check-after.txt" 2>&1; then
+    echo "structure check failed after the model run; one repair pass"
+    errors="$(grep '^ERROR' "$WORK/check-after.txt" | head -20)"
+    repair="You are running unattended in CI and already updated the map in ${MAP} following ${SKILL}/ci.md.
+The structure check now fails with:
+${errors}
+Fix only these errors inside the map (cite paths with their repo folder, for example aos-app/src/x.ts),
+then run: python3 -B ${SKILL}/scripts/check.py ${MAP} --root ${ROOT} --structure-only
+until it passes. Keep ${WORK}/result.json, updating its pages and limitations if needed. Same rules as ci.md."
+    run_claude "$repair" "$(python3 -c 'import sys; print(round(float(sys.argv[1]) / 2, 2))' "$BUDGET")" "$WORK/claude-repair.json"
+  fi
   rm -rf "$CLEAN_HOME"
 fi
 

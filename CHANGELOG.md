@@ -7,6 +7,14 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v34 — 2026-11-25
+
+**Reusable CI workflows.** `.github/workflows/update.yml` (docs repo) and `signal.yml` (source repos)
+hold the whole CI flow, so projects keep two short callers that pass settings. The update workflow
+adds one targeted repair pass for structure errors after the model's edits, keeps the run log as a
+7-day artifact, serializes runs per docs repo, and optionally reports to Notion cards. A moving `v1`
+tag carries releases to callers; release tags pin. Model cost now includes the repair pass.
+
 ## v33 — 2026-11-25
 
 **Unattended refresh in CI.** New `ci` procedure (`ci.md`), `scripts/ci.py` (`prepare` plans without a
