@@ -47,7 +47,7 @@ jobs:
       source: ${{ inputs.source }}
       sha: ${{ inputs.sha }}
       full: ${{ inputs.full }}
-      app-client-id: ${{ vars.WIKI_APP_CLIENT_ID }}
+      app-client-id: Iv23lieDEWGv0WCFG4aL   # your app's client ID; not secret
       notion-property: Wiki            # optional; omit to skip card reporting
     secrets:
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -62,27 +62,27 @@ on: {push: {branches: [main]}}
 permissions: {}
 jobs:
   signal:
-    if: vars.WIKI_REPO != ''
     uses: Simas-Zurauskas/wiki-system/.github/workflows/signal.yml@v1
-    with: {wiki-repo: ${{ vars.WIKI_REPO }}, app-client-id: ${{ vars.WIKI_APP_CLIENT_ID }}}
+    with: {wiki-repo: wiki-acme, app-client-id: Iv23lieDEWGv0WCFG4aL}
     secrets: {app-private-key: ${{ secrets.WIKI_APP_PRIVATE_KEY }}}
 ```
 
-Per-project setup. Repository-level secrets and variables work on every plan, including private
-repos on GitHub Free, where organization secrets are not available to them.
+Per-project setup. Names that are not secret (the app's client ID, the docs repo name) go in the
+caller files, so only real secrets are stored, and only where they are used. Repository-level secrets
+work on every plan; on GitHub Free, private repos cannot read organization secrets, which is why the
+app key is stored once per repo. On a paid plan it can be one organization secret shared with the repos.
 
-| Where | Name | Value |
+| Where | Secret | Used for |
 | --- | --- | --- |
-| GitHub App | one per organization | Repository permissions Contents read, Pull requests read, Actions write; installed on the docs repo and each source repo |
-| Docs repo | `WIKI_APP_CLIENT_ID` variable, `WIKI_APP_PRIVATE_KEY` secret | The app's client ID and private key |
-| Docs repo | `ANTHROPIC_API_KEY` secret | API key used by the model step only |
-| Docs repo | `NOTION_TOKEN` secret (optional) | Notion connection with update content and insert comments, shared with the tasks database |
-| Docs repo | `WIKI_AUTO_UPDATE` variable (optional) | `false` pauses the updates |
-| Each source repo | `WIKI_REPO` variable | Docs repo name; unset to stop signalling |
-| Each source repo | `WIKI_APP_CLIENT_ID`, `WIKI_APP_PRIVATE_KEY` | Same app |
+| GitHub App, one per organization | | Contents read, Pull requests read, Actions write; installed on the docs repo and each source repo |
+| Docs repo | `WIKI_APP_PRIVATE_KEY` | Reading the source repos |
+| Docs repo | `ANTHROPIC_API_KEY` | The model step only |
+| Docs repo | `NOTION_TOKEN` (optional) | Card reporting: a Notion connection with update content and insert comments |
+| Each source repo | `WIKI_APP_PRIVATE_KEY` | Sending the signal |
 
-Adding a source repo: map it in the docs repo (`.state.json` `repos`), install the app on it and give
-it the signal caller and its three settings. The update workflow picks the repo list from state.
+Pause updates with the docs repo variable `WIKI_AUTO_UPDATE=false`. Adding a source repo: map it in
+the docs repo (`.state.json` `repos`), install the app on it, and give it the signal caller and the app
+key. The update workflow reads the repo list from state.
 
 Safety comes from the wrapper, not the prompt: Claude runs in a scrubbed environment with only the API
 key, `--bare`, `dontAsk` permissions, edits limited to the map, read-only shell commands, no network
