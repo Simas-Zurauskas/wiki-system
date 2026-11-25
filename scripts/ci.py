@@ -171,6 +171,8 @@ def model_report(work):
             continue
         if report is None:
             report = {key: data.get(key) for key in ("subtype", "is_error", "num_turns", "total_cost_usd")}
+            if data.get("is_error"):
+                report["error"] = " ".join(str(data.get("result") or data.get("api_error_status") or "").split())[:200]
             continue
         report["repair_pass"] = True
         report["subtype"], report["is_error"] = data.get("subtype"), data.get("is_error")
@@ -191,7 +193,9 @@ def conclude(agents, root, work):
         status["model"] = model
 
     def fail(reason):
-        if model and model.get("subtype") not in (None, "success"):
+        if model and model.get("error"):
+            reason = f"the model run failed ({model['error']}); {reason}"
+        elif model and model.get("subtype") not in (None, "success"):
             reason = f"model run ended with {model['subtype']}; {reason}"
         status["reason"] = reason
         atomic_json(work / "status.json", status)

@@ -7,6 +7,12 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v35 — 2026-11-25
+
+**Clearer failure reasons.** When the model run itself errors (for example a rejected API key), the
+status and the Notion comment name the error instead of only "the model wrote no result.json".
+Found by the amazingOS pilot's forced-failure test.
+
 ## v34 — 2026-11-25
 
 **Reusable CI workflows.** `.github/workflows/update.yml` (docs repo) and `signal.yml` (source repos)

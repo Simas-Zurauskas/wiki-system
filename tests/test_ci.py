@@ -134,6 +134,14 @@ class CiTests(MapFixture):
         self.assertEqual(status["model"]["total_cost_usd"], 2.01)
 
 
+    def test_model_api_error_is_named(self):
+        self.change_source()
+        self.ci("prepare")
+        (self.work / "claude.json").write_text(json.dumps(
+            {"type": "result", "subtype": "success", "is_error": True, "result": "Invalid API key · Fix external API key"}))
+        self.ci("conclude", expected=1)
+        self.assertIn("Invalid API key", self.status()["reason"])
+
     def test_repair_pass_cost_is_added(self):
         self.change_source()
         self.ci("prepare")
