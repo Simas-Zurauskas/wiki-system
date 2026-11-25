@@ -106,7 +106,7 @@ jobs:
 
       - name: Refresh the map
         id: wiki
-        uses: Simas-Zurauskas/wiki-system@v37
+        uses: Simas-Zurauskas/wiki-system@v38
         with:
           map: ${{ github.event.repository.name }}/${{ inputs.map }}
           anthropic-api-key: ${{ secrets.anthropic-api-key }}
