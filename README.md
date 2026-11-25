@@ -20,8 +20,8 @@ to helpers. Custom nested/external documentation destinations are valid.
 ## CI
 
 Projects reuse two workflows from this repo and pass settings only, so a fix here reaches every
-project. Reference `@v1` (moved to each release) to receive updates, or a release tag such as `@v34`
-to pin. The pieces underneath, `action.yml` and `scripts/ci_run.sh`, can also be used directly.
+project. Reference `@stable` (moved to each release) to receive updates, or a release tag such as
+`@v38` to pin. The pieces underneath, `action.yml` and `scripts/ci_run.sh`, can also be used directly.
 
 - `.github/workflows/update.yml`, called from the **docs repo**: clones the source repos named in
   `.state.json` with a GitHub App token, plans without a model, runs Claude Code headless only when
@@ -42,7 +42,7 @@ permissions: {contents: write}
 jobs:
   update:
     if: vars.WIKI_AUTO_UPDATE != 'false'
-    uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@v1
+    uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@stable
     with:
       source: ${{ inputs.source }}
       sha: ${{ inputs.sha }}
@@ -62,7 +62,7 @@ on: {push: {branches: [main]}}
 permissions: {}
 jobs:
   signal:
-    uses: Simas-Zurauskas/wiki-system/.github/workflows/signal.yml@v1
+    uses: Simas-Zurauskas/wiki-system/.github/workflows/signal.yml@stable
     with: {wiki-repo: wiki-acme, app-client-id: Iv23lieDEWGv0WCFG4aL}
     secrets: {app-private-key: ${{ secrets.WIKI_APP_PRIVATE_KEY }}}
 ```
@@ -90,6 +90,10 @@ tools or subagents, and turn and spend caps. `conclude` then refuses edits outsi
 to a source checkout, a failed structure check, or a missing or failed `result.json`. A failed run
 publishes nothing and leaves the baseline in place, so the next run covers the same range.
 `scripts/ci_run.sh` is the same path for a local dry run.
+
+Releasing: update CHANGELOG, then `scripts/release.sh <N>`. It sets VERSION, points the update
+workflow at action tag `vN`, commits, tags `vN`, moves `stable` and pushes. Callers on `@stable` get
+the release on their next run.
 
 ## What is maintained
 

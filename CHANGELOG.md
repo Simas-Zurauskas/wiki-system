@@ -7,6 +7,13 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v38 — 2026-11-25
+
+**Card links with page titles; `stable` tag; release script.** The Notion card ID is now matched as
+a whole 32-character ID or dashed UUID, so a link that includes the page title
+(`…/Add-a-date-command-<id>`) no longer yields a wrong ID. The moving tag for callers is `stable`
+(was `v1`, which read as older than `v37`). `scripts/release.sh <N>` performs a release.
+
 ## v37 — 2026-11-25
 
 **No commit when nothing is new.** When every repo is exactly at its baseline, `conclude` reports

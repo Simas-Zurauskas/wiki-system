@@ -4,7 +4,7 @@
 # Caller (in the docs repo):
 #   on: workflow_dispatch (inputs source, sha, full, report)
 #   permissions: contents: write
-#   jobs.update.uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@v1
+#   jobs.update.uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@stable
 # See README "CI" for the full caller and the per-project settings.
 name: wiki-system update
 
@@ -209,6 +209,8 @@ jobs:
               return json.loads(out.stdout) if out.returncode == 0 else None
 
           marker = env["LINK_LABEL"].lower()
+          # A card ID is 32 hex characters, plain or as a dashed UUID, not part of a longer run.
+          card_id = re.compile(r"(?<![0-9a-f])(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?![0-9a-f])")
           pages = set()
           for repo, r in ranges.items():
               if r.get("from") and r["from"] == r["to"]:
@@ -221,9 +223,9 @@ jobs:
                   for pr in gh(f"repos/{env['OWNER']}/{repo}/commits/{sha}/pulls") or []:
                       for line in (pr.get("body") or "").splitlines():
                           if marker in line.lower():
-                              ids = re.findall(r"[0-9a-f]{32}", line.replace("-", ""))
+                              ids = card_id.findall(line.lower())
                               if ids:
-                                  pages.add(ids[-1])
+                                  pages.add(ids[-1].replace("-", ""))
           print(f"{env['PROPERTY']}={label} for {len(pages)} card(s)")
 
           def notion(method, path, body):
