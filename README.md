@@ -25,10 +25,11 @@ project. Reference `@stable` (moved to each release) to receive updates, or a re
 
 - `.github/workflows/update.yml`, called from the **docs repo**: clones the source repos named in
   `.state.json` with a GitHub App token, plans without a model, runs Claude Code headless only when
-  source or structure needs it, gives structure errors one repair pass, validates, pushes the map,
+  source or structure needs it, gives structure errors up to two repair passes, validates, pushes the map,
   and optionally sets a select property on the Notion cards whose pull requests it covered (a
-  `Failed` result also comments the reason). Runs are serialized per docs repo; each covers the
-  baseline-to-head range, so a replaced pending run loses nothing. The run log is kept as a 7-day artifact.
+  `Failed` result also comments the reason). Runs are serialized per docs repo. Each starts from
+  the docs repo's current default branch and covers the baseline-to-head range, so a pending run
+  that GitHub replaces loses nothing. The run log is kept as a 7-day artifact.
 - `.github/workflows/signal.yml`, called from each **source repo** on push: starts the docs repo's
   update through the REST dispatch API. It never blocks a merge or deploy.
 
@@ -80,13 +81,17 @@ app key is stored once per repo. On a paid plan it can be one organization secre
 | Docs repo | `NOTION_TOKEN` (optional) | Card reporting: a Notion connection with update content and insert comments |
 | Each source repo | `WIKI_APP_PRIVATE_KEY` | Sending the signal |
 
+Anyone who can change workflows in a repo that holds the app key can ask the app for a read token
+to every repo the app is installed on. Install one app only across repos whose people may see each
+other's code; give a client project with narrower access its own app.
+
 Pause updates with the docs repo variable `WIKI_AUTO_UPDATE=false`. Adding a source repo: map it in
 the docs repo (`.state.json` `repos`), install the app on it, and give it the signal caller and the app
 key. The update workflow reads the repo list from state.
 
 Safety comes from the wrapper, not the prompt: Claude runs in a scrubbed environment with only the API
-key, `--bare`, `dontAsk` permissions, edits limited to the map, read-only shell commands, no network
-tools or subagents, and turn and spend caps. `conclude` then refuses edits outside the map, any change
+key, `--bare`, `dontAsk` permissions, edits limited to the map, no shell, no network tools or
+subagents, and turn and spend caps (the spend cap covers the update and its repair passes). `conclude` then refuses edits outside the map, any change
 to a source checkout, a failed structure check, or a missing or failed `result.json`. A failed run
 publishes nothing and leaves the baseline in place, so the next run covers the same range.
 `scripts/ci_run.sh` is the same path for a local dry run.

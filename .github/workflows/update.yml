@@ -2,7 +2,7 @@
 # configured, set a property on the Notion cards whose pull requests the run covered.
 #
 # Caller (in the docs repo):
-#   on: workflow_dispatch (inputs source, sha, full, report)
+#   on: workflow_dispatch (inputs source, sha, full)
 #   permissions: contents: write
 #   jobs.update.uses: Simas-Zurauskas/wiki-system/.github/workflows/update.yml@stable
 # See README "CI" for the full caller and the per-project settings.
@@ -78,6 +78,9 @@ jobs:
       - name: Check out the docs repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The branch tip at run time, not the commit at dispatch time: a queued run must start
+          # from the map the previous run published.
+          ref: ${{ github.event.repository.default_branch }}
           path: ${{ github.event.repository.name }}
           persist-credentials: false
 
@@ -88,13 +91,15 @@ jobs:
         run: |
           python3 - "$STATE" >> "$GITHUB_OUTPUT" <<'EOF'
           import json, sys
-          repos = [r for r in json.load(open(sys.argv[1]))["repos"] if r != "."]
+          repos = list(json.load(open(sys.argv[1]))["repos"])
+          if "." in repos:
+              sys.exit("This workflow is for a docs repo beside its source repos. A map kept inside "
+                       "its own source repo (repos: '.') should call the wiki-system action directly.")
           print("repos=" + ",".join(repos))
           EOF
 
       - name: Token for the source repos
         id: app
-        if: steps.sources.outputs.repos != ''
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ inputs.app-client-id }}
@@ -119,6 +124,7 @@ jobs:
 
       - name: Keep the run log
         if: always() && steps.wiki.outcome != 'skipped'
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wiki-update-${{ github.run_id }}
@@ -152,8 +158,9 @@ jobs:
           print()
           print("Run: " + os.environ["RUN_URL"])
           EOF
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -q -F "$RUNNER_TEMP/message.txt"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -F "$RUNNER_TEMP/message.txt"
           AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
           for attempt in 1 2; do
             if git -c http.https://github.com/.extraheader="$AUTH" push -q origin "HEAD:$BRANCH"; then exit 0; fi
@@ -171,7 +178,9 @@ jobs:
           WIKI_REASON: ${{ steps.wiki.outputs.reason }}
         run: |
           status="${WIKI_STATUS:-failed}"; reason="$WIKI_REASON"
-          if [ "$PUBLISH" = "failure" ]; then status=failed; reason="the refreshed map could not be pushed"; fi
+          if [ "$status" != "failed" ] && [ "$PUBLISH" != "success" ]; then
+            status=failed; reason="the refreshed map was not published (publish step: ${PUBLISH:-not run})"
+          fi
           [ -n "$reason" ] || [ "$status" != "failed" ] || reason="the run stopped before the map was refreshed"
           echo "status=$status" >> "$GITHUB_OUTPUT"
           echo "reason=$(printf '%s' "$reason" | tr '\n' ' ' | cut -c1-400)" >> "$GITHUB_OUTPUT"
@@ -197,7 +206,8 @@ jobs:
 
           env = os.environ
           if not env.get("NOTION_TOKEN"):
-              raise SystemExit("notion-token not set; skipping card reporting")
+              print("notion-token not set; skipping card reporting")
+              raise SystemExit(0)
           status = env["STATUS"] if env["STATUS"] in ("updated", "no_change", "failed") else "failed"
           label = {"updated": "Updated", "no_change": "No change", "failed": "Failed"}[status]
           ranges = json.loads(env.get("RANGES") or "{}")

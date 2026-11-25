@@ -7,6 +7,19 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v39 — 2026-11-25
+
+**Fixes from an independent review.** The update starts from the docs repo's current default branch,
+not the commit at dispatch time, so a queued run no longer repeats work, fails to push and marks
+cards Failed. The model has no shell: `prepare` writes the baseline-to-head diff to a file, the
+wrapper runs the structure check and gives up to two repair passes, and `.git` is write-protected
+(allowed `git diff`/`git log` could be turned into command execution or file writes through git
+options). The spend cap now covers the whole run. `conclude` re-reads the source identity before
+finalizing, so citing a generated or ignored file no longer blocks every run. Also: commit identity
+set for the rebase retry; an unset Notion token skips reporting instead of failing; a failed log
+upload cannot report an unpublished map as Updated; a source repo that cannot be cloned fails the
+run; single-repo maps are refused with a clear message; `release.sh` requires a clean tree.
+
 ## v38 — 2026-11-25
 
 **Card links with page titles; `stable` tag; release script.** The Notion card ID is now matched as

@@ -4,6 +4,7 @@
 set -euo pipefail
 N="${1:?usage: scripts/release.sh <version number>}"
 cd "$(dirname "$0")/.."
+[ -z "$(git status --porcelain)" ] || { echo "commit or stash your changes first (CHANGELOG included)"; exit 1; }
 grep -q "^## v$N " CHANGELOG.md || { echo "CHANGELOG.md has no '## v$N' entry"; exit 1; }
 python3 -B -m unittest discover -s tests >/dev/null 2>&1 || { echo "tests fail; not releasing"; exit 1; }
 printf '%s\n' "$N" > VERSION
@@ -15,7 +16,7 @@ new, n = re.subn(r"(uses: Simas-Zurauskas/wiki-system)@v\d+", rf"\1@v{sys.argv[1
 assert n == 1, "expected exactly one action pin in update.yml"
 open(p, "w").write(new)
 PY
-git add -A
+git add VERSION .github/workflows/update.yml
 git commit -q -m "v$N"
 git tag -a "v$N" -m "wiki-system v$N"
 git tag -f -a stable -m "wiki-system stable: v$N" >/dev/null

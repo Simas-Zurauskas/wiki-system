@@ -146,6 +146,23 @@ class CiTests(MapFixture):
         self.assertEqual(status["model"]["total_cost_usd"], 2.01)
 
 
+    def test_citing_a_generated_file_does_not_block_finalize(self):
+        self.write(self.repo / "src/old/types.d.ts", "export type V = 1;\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "types")
+        self.ci("prepare")
+        self.write(self.agents / "areas/old.md", MARKER + "# Old\nTypes live in `app/src/old/types.d.ts`.\n")
+        self.result(pages=["areas/old.md"])
+        self.ci("conclude")
+        self.assertEqual(self.status()["status"], "updated")
+
+    def test_prepare_writes_the_diff_for_the_model(self):
+        self.change_source()
+        self.ci("prepare")
+        diff = Path(self.plan()["diffs"]["app"]).read_text()
+        self.assertIn("+export const version = 2;", diff)
+        self.assertIn("changes-app.diff", (self.work / "brief.md").read_text())
+
     def test_model_api_error_is_named(self):
         self.change_source()
         self.ci("prepare")
@@ -160,7 +177,7 @@ class CiTests(MapFixture):
         self.write(self.agents / "areas/old.md", MARKER + "# Old\nVersion two.\n")
         self.result()
         (self.work / "claude.json").write_text(json.dumps({"subtype": "success", "total_cost_usd": 0.2, "num_turns": 20}))
-        (self.work / "claude-repair.json").write_text(json.dumps({"subtype": "success", "total_cost_usd": 0.05, "num_turns": 4}))
+        (self.work / "claude-repair-1.json").write_text(json.dumps({"subtype": "success", "total_cost_usd": 0.05, "num_turns": 4}))
         self.ci("conclude")
         model = self.status()["model"]
         self.assertTrue(model["repair_pass"])

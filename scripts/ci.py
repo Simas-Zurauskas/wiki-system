@@ -19,6 +19,7 @@ from snapshot import atomic_json, file_fingerprint, git
 SCRIPTS = Path(__file__).resolve().parent
 PROMPT = "TASK-WORKFLOW-PROMPT.md"
 OUTCOMES = ("updated", "no_change", "failed")
+DIFF_LIMIT = 400_000  # bytes of diff handed to the model per repo; it reads files for the rest
 
 
 def run_script(name, *args):
@@ -91,8 +92,9 @@ def brief(plan, report, errors):
     for key, label in (("unmapped", "Unmapped changes"), ("index_hints", "Index hints")):
         if report[key]:
             lines += ["", f"{label}:"] + [f"- `{p}`" for p in report[key]]
-    for repo, data in report["repos"].items():
-        lines.append(f"\nDiff for `{repo}`: `git -C {repo} diff {data['baseline']} {data['head']} -- <path>`.")
+    if plan.get("diffs"):
+        lines += ["", "What changed, as unified diffs (read these, then the files themselves):"]
+        lines += [f"- `{repo}`: `{path}`" for repo, path in plan["diffs"].items()]
     return "\n".join(lines) + "\n"
 
 
@@ -119,6 +121,15 @@ def prepare(agents, root, work, full):
         head = git(repo_dir, "rev-parse", "HEAD").decode().strip()
         base = info.get("sha")
         ranges[repo] = {"from": base if base and has_commit(repo_dir, base) else None, "to": head}
+    diffs = {}
+    for repo, r in ranges.items():
+        # The model has no shell: hand it the baseline-to-head diff as a file.
+        if r["from"] and r["from"] != r["to"]:
+            patch = subprocess.run(["git", "-C", str(root / repo), "diff", "--no-ext-diff", "--no-textconv",
+                                    r["from"], r["to"]], capture_output=True, timeout=120).stdout[:DIFF_LIMIT]
+            name = f"changes-{repo.replace('/', '_') if repo != '.' else 'repo'}.diff"
+            (work / name).write_bytes(patch)
+            diffs[repo] = str(work / name)
     snapshot = work / "snapshot.json"
     if snapshot.exists():
         snapshot.unlink()
@@ -133,7 +144,7 @@ def prepare(agents, root, work, full):
         "agents": str(agents), "root": str(root), "wiki": str(top),
         "prompt_existed": (agents.parent / PROMPT).exists(),
         "wiki_pending": {p: file_fingerprint(top / p) for p in pending},
-        "ranges": ranges, "repos": repo_state(root, state["repos"]),
+        "ranges": ranges, "diffs": diffs, "repos": repo_state(root, state["repos"]),
         "structure_errors": errors, "changes": report,
     }
     atomic_json(work / "prepare.json", plan)
@@ -162,9 +173,9 @@ def read_result(work):
 def model_report(work):
     """Cost and stop reason from `claude -p --output-format json`: the main run plus any repair pass."""
     report = None
-    for name in ("claude.json", "claude-repair.json"):
+    for path in [work / "claude.json", *sorted(work.glob("claude-repair*.json"))]:
         try:
-            data = json.loads((work / name).read_text())
+            data = json.loads(path.read_text())
         except (OSError, ValueError):
             continue
         if isinstance(data, list):  # stream/verbose output: the result message is last
@@ -227,6 +238,17 @@ def conclude(agents, root, work):
                and pending.get(p) != file_fingerprint(top / p)]
     if outside:
         return fail("edits outside the map: " + ", ".join(outside[:5]))
+    # The source checkouts are proven unchanged above, but the model's edits may cite files that were
+    # not evidence at capture time (ignored or generated ones), which changes the source fingerprint.
+    # Re-read the source identity with the edited map, keeping the preservation data captured before.
+    fresh = work / "snapshot-after.json"
+    fresh.unlink(missing_ok=True)
+    recapture = run_script("snapshot.py", "capture", agents, "--root", root, "--out", fresh)
+    if recapture.returncode:
+        return fail("could not re-read the source snapshot: " + recapture.stderr.strip()[:300])
+    saved = json.loads((work / "snapshot.json").read_text())
+    saved["repos"] = json.loads(fresh.read_text())["repos"]
+    atomic_json(work / "snapshot.json", saved)
     finalize = run_script("snapshot.py", "finalize", agents, "--root", root, "--snapshot", work / "snapshot.json")
     if finalize.returncode:
         return fail("finalize refused: " + (finalize.stderr or finalize.stdout).strip()[:400])

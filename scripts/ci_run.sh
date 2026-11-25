@@ -20,7 +20,7 @@ CI_PY=(python3 -B "$SKILL/scripts/ci.py")
 
 full=()
 [ "${WIKI_FULL:-false}" = "true" ] && full=(--full)
-rm -f "$WORK/result.json" "$WORK/claude.json" "$WORK/claude-repair.json" "$WORK/claude.stderr" "$WORK/status.json"
+rm -f "$WORK/result.json" "$WORK"/claude*.json "$WORK/claude.stderr" "$WORK/status.json"
 
 if ! "${CI_PY[@]}" prepare "$MAP" --root "$ROOT" --work "$WORK" ${full[@]+"${full[@]}"}; then
   exit 1  # prepare wrote status.json with the reason
@@ -41,40 +41,41 @@ Workspace root (your working directory): ${ROOT}
 Map directory: ${MAP}
 Work directory: ${WORK} (read brief.md there; write result.json there)"
   # A scrubbed environment and an empty home: no user settings, inherited session or other
-  # secret reaches the model, so the permission rules below are the whole policy.
+  # secret reaches the model, so the permission rules below are the whole policy. The model has no
+  # shell: prepare hands it the diff as a file and this script runs the structure check for it.
   # Paths in permission rules: a leading // is absolute.
   CLEAN_HOME="$(mktemp -d)"
   CLAUDE_BIN="$(command -v claude)"
+  share() { python3 -c 'import sys; print(round(float(sys.argv[1]) * float(sys.argv[2]), 2))' "$BUDGET" "$1"; }
   run_claude() {  # $1 prompt, $2 budget, $3 output file
     (cd "$ROOT" && env -i HOME="$CLEAN_HOME" PATH="$PATH" LANG="${LANG:-C.UTF-8}" TMPDIR="${TMPDIR:-/tmp}" \
       ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" "$CLAUDE_BIN" -p "$1" \
       --bare --model "$MODEL" --max-turns "$TURNS" --max-budget-usd "$2" \
       --output-format json --no-session-persistence --permission-mode dontAsk \
       --add-dir "$SKILL" --add-dir "$WORK" \
-      --tools "Read,Glob,Grep,Edit,Write,Bash" \
+      --tools "Read,Glob,Grep,Edit,Write" \
       --allowedTools "Read" "Glob" "Grep" \
         "Edit(/${MAP}/**)" "Write(/${MAP}/**)" "Edit(/${WORK}/result.json)" "Write(/${WORK}/result.json)" \
-        "Bash(python3 -B ${SKILL}/scripts/check.py *)" "Bash(ls *)" "Bash(grep *)" \
-        "Bash(git -C * diff *)" "Bash(git -C * log *)" "Bash(git -C * show *)" \
-        "Bash(git -C * ls-files *)" "Bash(git -C * status *)" \
-      --disallowedTools "Agent" "WebFetch" "WebSearch" \
+      --disallowedTools "Bash" "Agent" "WebFetch" "WebSearch" "Edit(//**/.git/**)" "Write(//**/.git/**)" \
       > "$3" 2>> "$WORK/claude.stderr")
     echo "claude exit=$?"
   }
-  run_claude "$prompt" "$BUDGET" "$WORK/claude.json"
+  # The spend cap covers the whole run: three quarters for the update, the rest for repairs.
+  run_claude "$prompt" "$(share 0.75)" "$WORK/claude.json"
 
-  # One repair pass: structure errors after the edits get a short, targeted follow-up run.
-  if [ -f "$WORK/result.json" ] && ! python3 -B "$SKILL/scripts/check.py" "$MAP" --root "$ROOT" --structure-only > "$WORK/check-after.txt" 2>&1; then
-    echo "structure check failed after the model run; one repair pass"
+  # Up to two repair passes: structure errors left by the edits get a short, targeted follow-up.
+  for pass in 1 2; do
+    [ -f "$WORK/result.json" ] || break
+    python3 -B "$SKILL/scripts/check.py" "$MAP" --root "$ROOT" --structure-only > "$WORK/check-after.txt" 2>&1 && break
+    echo "structure check failed after the model run; repair pass $pass"
     errors="$(grep '^ERROR' "$WORK/check-after.txt" | head -20)"
     repair="You are running unattended in CI and already updated the map in ${MAP} following ${SKILL}/ci.md.
-The structure check now fails with:
+The structure check, which you cannot run yourself, now fails with:
 ${errors}
-Fix only these errors inside the map (cite paths with their repo folder, for example aos-app/src/x.ts),
-then run: python3 -B ${SKILL}/scripts/check.py ${MAP} --root ${ROOT} --structure-only
-until it passes. Keep ${WORK}/result.json, updating its pages and limitations if needed. Same rules as ci.md."
-    run_claude "$repair" "$(python3 -c 'import sys; print(round(float(sys.argv[1]) / 2, 2))' "$BUDGET")" "$WORK/claude-repair.json"
-  fi
+Fix only these errors inside the map, following the structure rules in ci.md. Keep ${WORK}/result.json,
+updating its pages and limitations if needed. Same rules as ci.md."
+    run_claude "$repair" "$(share 0.125)" "$WORK/claude-repair-$pass.json"
+  done
   rm -rf "$CLEAN_HOME"
 fi
 
