@@ -1,6 +1,11 @@
-# Create a compact agent map
+# Create or rebuild a fresh agent map
 
 Follow SKILL.md preflight and read [page guidance](reference/pages.md). Source is read-only.
+
+`init` writes a new map from current source, even when generated documentation already exists.
+Choose its structure for current workflows; do not migrate the previous page tree or retain old
+paths for compatibility. Preserve handwritten material using [existing-output handling](reference/existing-output.md).
+Link-preservation, redirects and archives are separate work only when explicitly requested.
 
 ## Find a useful scope
 
@@ -29,13 +34,19 @@ No task directories are created by map generation.
 
 ## Capture, write, verify
 
-1. If output exists, follow [adoption](reference/adoption.md). Save the pre-edit map/state in scratch;
-   record which files are generated and preserve all other files. Set up `.state.json` per page guidance,
-   retaining existing repo baseline fields. Add managed page paths and useful ownership/watch globs.
+1. If output exists, identify confirmed generated files and protected owner content using
+   [existing-output handling](reference/existing-output.md). Keep a temporary restorable copy outside
+   the wiki until review passes. Set up `.state.json` per page guidance, retaining valid existing repo
+   baseline fields; declare both replaceable generated pages and planned new pages before capture.
+   Add useful ownership/watch globs. This is a fresh source-writing pass, not an old-to-new migration plan.
 2. Capture source **before writers**:
    `python3 <skill>/scripts/snapshot.py capture <WIKI>/AGENTS --root <workspace> --out <scratch>/snapshot.json`
    Keep scratch outside source repos or inside the excluded map. Never fake snapshot metadata.
-3. Write the map from opened source. One writer is enough for a small job. If delegation helps, batch
+3. Write the new map from opened source and remove superseded confirmed generated output from the
+   managed list and filesystem. Update links in the generated pages/signposts being written to point
+   directly to the new map. Do not create replacement pages solely to satisfy incoming links from
+   untouched source READMEs, task prompts or history; report those links without blocking the rebuild.
+   One writer is enough for a small job. If delegation helps, batch
    related areas and use [the writer brief](specialists/agents.md); give each writer only its assignment,
    relevant rules and pointers. Use disjoint page ownership; the orchestrator alone edits index/state.
    No fixed model/count, per-page agents or source-size-driven fan-out.
@@ -54,5 +65,6 @@ No task directories are created by map generation.
 ## Finish
 
 Report pages/words, actual agent use, structural/freshness results, semantic review scope, important
-omissions and limitations. A concise chat report suffices; do not create a report tree. Suggest
+omissions and limitations. Remove temporary backups after successful review/checks unless the user
+requests retention. A concise chat report suffices; do not create a report tree. Suggest
 `context` if entry files are not connected. Leave source, entry instructions and user docs untouched.

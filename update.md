@@ -2,7 +2,9 @@
 
 Follow SKILL.md preflight. `update` and `recheck diff` are incremental; `update --full` and
 `recheck` revisit every documented area and its relevant source flows. Neither means an exhaustive
-claim-by-claim audit. Legacy output needs [adoption](reference/adoption.md), not old orchestration.
+claim-by-claim audit. If an older map has unsupported state, use [init](init.md) to write a fresh map
+at the same destination within the recorded/requested repo scope. Do not introduce a migration phase,
+compatibility pages or archives. A usable current map stays incremental regardless of skill version.
 
 ## Select affected work
 
@@ -10,6 +12,8 @@ Run `python3 <skill>/scripts/changed.py <WIKI>/AGENTS --root <workspace> --json`
 Read changed paths, touched areas, referenced pages, index hints, unmapped files, newly discovered
 repos and fallback/unavailability reasons. Zero touched areas does not imply no work. Include
 unresolved review limitations when they can now be checked, even when source is unchanged.
+An explicit report of poor navigation is actionable evidence even with unchanged source: reproduce
+the affected lookup, then repair supported gaps within the requested scope.
 
 - Follow ownership, watches and cited-path references; trace consequential changes into callers
   and consumers even when no direct file citation selects them.

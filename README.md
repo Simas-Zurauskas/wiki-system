@@ -6,7 +6,7 @@ map section and then inspect current source. The map does not replace code, test
 
 ## Use
 
-- `init`: create the smallest useful map after inspecting existing docs.
+- `init`: create a fresh source-backed map, replacing confirmed generated output when present.
 - `update`: refresh affected navigation and constraints; `update --full` revisits every area.
 - `check`: read-only structure and source freshness, never factual certification.
 - `context`: connect minimal Codex/Claude entry pointers without replacing handwritten instructions.
@@ -24,8 +24,10 @@ there is no mandatory catalog/contracts/invariants spine or page count. Only dec
 are generated. Handwritten files, preservation blocks, owner rules, LINKS, tasks and other docs survive.
 
 The task workflow prompt is installed once when missing. Thereafter it belongs to the project.
-Existing project copies are not upgraded as a side effect of this skill release. See
-[adoption notes](reference/adoption.md) for old wiki-system/wiki-lite output.
+Existing project copies are not upgraded as a side effect of this skill release. Old generated
+output does not require a migration project: `init` writes a new map from source, with no compatibility
+pages, redirects or archives unless explicitly requested. [Existing-output handling](reference/existing-output.md)
+preserves owner material and snapshot integrity; it does not preserve the previous generated tree.
 
 No other skill is required. The task prompt supplies standalone scope, testing and verification
 guidance; when available, eng-rulebook supplements it. Its absence needs no installation or warning.
@@ -34,6 +36,8 @@ Inventory is mechanical; explanation still needs source reading. Writers work in
 review targets consequential contracts/constraints plus a rotating ordinary area. All verification
 reports distinguish structure, source freshness and the actual semantic sample. A full refresh
 revisits all documented areas, not every atomic claim or every source file.
+Substantial map work also tries representative change requests from the index through source and
+verification pointers. Area depth follows those tasks; smaller output is not itself a better map.
 
 Snapshot capture/finalization binds updates to the actual working tree, including dirty and
 untracked evidence. Unavailable repos retain older snapshots and make the run partial. Unknown file
@@ -59,12 +63,26 @@ No new dependency, network update check, hooks, background process or per-rule l
 
 ## Evidence and sources
 
+Official guidance reviewed on 2026-11-09 supports small startup instructions, relevant detail loaded
+on demand, concrete project conventions/checks, and evaluation against actual tasks. It does not
+prescribe a universal wiki layout, an area-page word limit or a required page count. This skill's
+navigation trial is a local application of those principles, not a vendor-mandated workflow.
+
+Keep durable owner rules in entry instructions, code explanations in linked map pages, and exact
+contracts in source. Do not import the whole wiki into startup context: Claude imports load eagerly.
+Codex and Claude instruction discovery differ, so check actual entry routes instead of assuming a
+parent workspace file reaches every independently opened sibling repository. Avoid duplicating the
+manual in wrappers. No hook, retrieval database or new background service is needed for this map.
+
 The earlier wiki-lite experiments found correct outcomes both with and without the map, with slower
 map-assisted runs in those small samples. That does not prove maps are useless or that v29 is faster.
 Keep the usefulness check and measure source-backed answers, missed constraints, maintenance effort,
 time and actual exposed usage. Do not infer tokens from transcript length or label sampled review exhaustive.
 
+- [OpenAI: durable project guidance and verification](https://learn.chatgpt.com/guides/best-practices)
+- [OpenAI: instruction discovery and scope](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
 - [OpenAI: short routers and task-relevant context](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)
 - [Claude: concise instructions and verification](https://code.claude.com/docs/en/best-practices)
 - [Claude: AGENTS/CLAUDE loading and compatibility](https://code.claude.com/docs/en/memory)
+- [Anthropic: sufficient context and on-demand retrieval](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
 - [Context-file research and its evaluation limits](https://arxiv.org/abs/2602.11988)

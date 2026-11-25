@@ -31,6 +31,11 @@ Aim for a few useful lines, not a hard cap that truncates owner content. A new C
 `@AGENTS.md`; a new Codex wrapper around authoritative CLAUDE.md must explicitly instruct reading it.
 Avoid reciprocal imports. If an existing wrapper already reaches the canonical file, do not add a
 second copy. Report which root/repo entrypoints are actually connected.
+In a sibling-repo workspace, verify discovery from both the workspace and the repo's own Git root;
+a parent workspace instruction is not guaranteed to load when Codex opens that repo independently.
+Markdown links route on demand; Claude `@` imports load their contents at startup. Import only the
+small shared instruction file, not the map tree. Existing local planning docs may describe intent
+or history; do not silently treat them as evidence of implemented behavior.
 
 ## Safe installation and validation
 

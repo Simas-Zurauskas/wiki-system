@@ -2,10 +2,31 @@
 
 One entry per `VERSION` bump, newest first. **Update this file in the same
 commit that bumps `VERSION`** — the `generator_version` recorded in each
-project's `plan.yaml` only tells a recheck *that* the generator drifted; this
+project's `.state.json` only tells an update *that* the generator drifted; this
 file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
+
+## v32 — 2026-11-10
+
+**Fresh initialization, without an automatic migration project.** `init` writes a new map from
+current source and replaces confirmed generated output, including old maps. It does not retain
+old paths, generate compatibility pointers/redirects or create archives unless explicitly requested.
+Unsupported legacy state during `update` routes to the same fresh rebuild; ordinary current-map
+updates stay incremental. Replaces the adoption guide with focused ownership/snapshot handling,
+preserves owner files and keep blocks, reports incoming links without rebuilding their destinations,
+and removes temporary backups after successful checks. No helper/schema changes or automatic edits
+to installed project wikis.
+
+## v31 — 2026-11-09
+
+**Validate task navigation, not just compactness.** Area depth follows coherent change workflows,
+with producer/consumer connections, consequential recovery and available verification. The 600-word
+advisory is not a writing target. Substantial map work includes representative navigation trials in
+the existing bounded review; unchanged source does not dismiss a reported usability gap. Migration
+accounts for useful knowledge before cleanup and uses scratch backups without default in-wiki
+archives. Current official context guidance and its limits are recorded in README. No helper/schema
+changes, automatic project rewrites, mandatory page counts or new review ledgers.
 
 ## v30 — 2026-11-07
 

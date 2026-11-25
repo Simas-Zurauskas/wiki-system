@@ -19,7 +19,20 @@ A valid path, large file or missing preferred tool is not a factual finding. Don
 requirements or insist that navigation prose reproduce every branch. Recheck supported corrections;
 stop with partial status when evidence is unavailable rather than enter an unlimited repair loop.
 
+For init, migration or a substantial navigation rewrite, also try representative change requests
+from the index as a fresh reader. Select tasks from actual capabilities, including a boundary-crossing
+change where relevant. Follow the map, then verify the indicated source: can the reader locate the
+entrypoint, propagation/consumers, consequential constraints and available verification without
+rebuilding the main flow from scratch? Record useful routes, misleading/missing connections and
+remaining uncertainty. Targeted source exploration is expected; reproducing all source in the map
+is not the goal. Repair demonstrated gaps, not arbitrary page-count or length differences. Use the
+same independent batch where practical; a small edit needs only its affected route checked.
+
 Record `review_summary` in state: managed pages/sections actually reviewed, the ordinary area's id
 (or null for an index-only map), method (`self` or `independent`) and remaining limitations. No per-rule
 receipts or report tree. Preserve unresolved limitations on subsequent no-op runs. Source stability
 finalization is separate from this semantic judgment and never proves it happened automatically.
+Summarize the navigation tasks and outcomes in this same review summary when performed. A passing
+structure/freshness/coverage check is not a navigation trial or evidence of completeness. Claims of
+speed or cost improvement require a comparable baseline; a successful trial establishes only the
+sampled tasks, not universal effectiveness.

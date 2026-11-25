@@ -20,15 +20,24 @@ and where a common change begins. Omit empty sections. Read actual producers and
 boundary claims; a file name or comment is not sufficient evidence. Include admin/background flows
 when relevant, and identify prototypes or uncertain behavior honestly.
 
+Choose retrieval units by the work an agent will do. A repo overview can route to several workflows;
+it cannot replace their explanations merely by owning a broad source glob. For a meaningful change,
+the relevant page should connect the entrypoint to the write/compute path, downstream consumers,
+failure or recovery behavior and existing checks worth opening. Name the important symbols and
+what must change together. Explain why a surprising constraint matters, rather than listing files.
+Include these details when supported and useful; do not invent tests or fill a mandatory template.
+
 Use workspace-relative paths in backticks; append `/` for directories. Markdown links are relative
 to the containing page. Quote paths containing spaces with angle brackets in links. Cite symbols
 agents can search, not brittle line anchors. Keep exact schemas, enum lists, configuration values
 and inventories in machine sources; point to them. State a literal only when it is itself a useful
 cross-system contract and give its source. Don't make a generated map the authority for policy.
 
-Aim for roughly 600 words or fewer per area; size warnings invite trimming or a useful split,
-not automatic failure. Avoid splitting one coherent flow into fragments merely to meet a budget.
-Keep startup instructions much smaller: links to relevant documentation, not an imported manual.
+Keep startup instructions small and route to detail on demand. Area pages have no target word count:
+keep one coherent workflow together, and split unrelated change surfaces when separate retrieval
+helps. The checker's size warnings are review cues, not a maximum or a reason to discard useful
+connections. Remove duplication and source inventories before cutting behavior. A short page that
+forces rediscovery of the central flow is incomplete; a longer, focused page may be appropriate.
 
 ## Ownership
 
