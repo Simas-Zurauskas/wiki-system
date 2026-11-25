@@ -106,7 +106,7 @@ jobs:
 
       - name: Refresh the map
         id: wiki
-        uses: Simas-Zurauskas/wiki-system@v35
+        uses: Simas-Zurauskas/wiki-system@v36
         with:
           map: ${{ github.event.repository.name }}/${{ inputs.map }}
           anthropic-api-key: ${{ secrets.anthropic-api-key }}
@@ -211,8 +211,10 @@ jobs:
           marker = env["LINK_LABEL"].lower()
           pages = set()
           for repo, r in ranges.items():
+              if r.get("from") and r["from"] == r["to"]:
+                  continue  # nothing new in this repo since the baseline: no card to report on
               shas = [r["to"]]
-              if r.get("from") and r["from"] != r["to"]:
+              if r.get("from"):
                   compare = gh(f"repos/{env['OWNER']}/{repo}/compare/{r['from']}...{r['to']}") or {}
                   shas = [c["sha"] for c in compare.get("commits", [])] or shas
               for sha in shas:

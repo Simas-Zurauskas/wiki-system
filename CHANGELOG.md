@@ -7,6 +7,11 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v36 — 2026-11-25
+
+**No card reporting for empty ranges.** A run whose baseline already equals a repo's head (a manual
+rerun, or a replaced pending run) no longer relabels the last merge's card.
+
 ## v35 — 2026-11-25
 
 **Clearer failure reasons.** When the model run itself errors (for example a rejected API key), the
