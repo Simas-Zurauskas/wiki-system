@@ -55,6 +55,13 @@ jobs:
           SHA: ${{ github.sha }}
         # The REST dispatch needs only Actions: write; `gh workflow run` would also need read access.
         run: |
-          gh api "repos/$WIKI/actions/workflows/$WORKFLOW/dispatches" \
-            -f ref="$REF" -f "inputs[source]=$SOURCE" -f "inputs[sha]=$SHA"
-          echo "Started $WORKFLOW in $WIKI for $SOURCE $SHA"
+          # GitHub's API fails now and then; a lost signal delays the wiki until the next merge.
+          for attempt in 1 2 3 4; do
+            if gh api "repos/$WIKI/actions/workflows/$WORKFLOW/dispatches" \
+              -f ref="$REF" -f "inputs[source]=$SOURCE" -f "inputs[sha]=$SHA"; then
+              echo "Started $WORKFLOW in $WIKI for $SOURCE $SHA"; exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 30 seconds"; sleep 30
+          done
+          echo "::error::Could not start $WORKFLOW in $WIKI. Run it by hand, or the next merge will cover this change."
+          exit 1

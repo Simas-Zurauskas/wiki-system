@@ -7,6 +7,11 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v40 — 2026-11-25
+
+**The signal retries.** During a GitHub API outage the dispatch call failed once and the wiki update
+never started. `signal.yml` now tries four times, 30 seconds apart, and says how to recover.
+
 ## v39 — 2026-11-25
 
 **Fixes from an independent review.** The update starts from the docs repo's current default branch,
