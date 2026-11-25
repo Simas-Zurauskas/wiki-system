@@ -22,11 +22,12 @@ Use [the codebase map](<relative path to AGENTS/index.md>) when locating behavio
 Load only relevant area pages, then verify current source before editing.
 <If declared: Read and follow [project rules](<relative policy path>) before planning, implementation or review; pass applicable constraints to delegated agents.>
 <If present: [External references](<relative LINKS.md path>) identify product/spec authority; the map describes implemented code.>
-Refresh the map only when asked, using wiki-system update; entry pointers use wiki-system context.
+<Without CI: Refresh the map only when asked, using wiki-system update; entry pointers use wiki-system context.>
+<With CI: The map refreshes automatically after merges to <branch>; do not edit its pages in feature work. Entry pointers use wiki-system context.>
 <!-- /wiki-system: context -->
 ```
 
-Remove absent optional lines. Do not duplicate commands, area lists, catches or policy in entry files.
+Use exactly one of the refresh lines. Remove absent optional lines. Do not duplicate commands, area lists, catches or policy in entry files.
 Aim for a few useful lines, not a hard cap that truncates owner content. A new CLAUDE.md can contain
 `@AGENTS.md`; a new Codex wrapper around authoritative CLAUDE.md must explicitly instruct reading it.
 Avoid reciprocal imports. If an existing wrapper already reaches the canonical file, do not add a

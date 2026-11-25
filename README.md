@@ -17,6 +17,31 @@ canonical source. Ordinary development does not refresh docs automatically. Git-
 linked worktrees and immediate sibling-repo workspaces are supported; always pass the resolved root
 to helpers. Custom nested/external documentation destinations are valid.
 
+## CI
+
+`action.yml` refreshes a map unattended, for example after every merge. The project owns the workflow,
+the commit and any tracker update; the action owns only the refresh. It clones the source repos named
+in `.state.json` (missing ones become unavailable and the run partial), plans without a model, runs
+Claude Code headless only when source or structure needs it, then validates and finalizes. Outputs:
+`status` (`updated`, `no_change`, `failed`), `summary`, `reason`, `pages`, `ranges` and `cost-usd`.
+
+```yaml
+- uses: Simas-Zurauskas/wiki-system@<commit>
+  id: wiki
+  with:
+    map: wiki-acme/AGENTS            # checked out beside the source repos
+    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+    source-owner: ${{ github.repository_owner }}
+    source-token: ${{ steps.app.outputs.token }}   # read access to the source repos
+```
+
+Safety comes from the wrapper, not the prompt: Claude runs in a scrubbed environment with only the API
+key, `--bare`, `dontAsk` permissions, edits limited to the map, read-only shell commands, no network
+tools or subagents, and turn and spend caps. `conclude` then refuses edits outside the map, any change
+to a source checkout, a failed structure check, or a missing or failed `result.json`. A failed run
+publishes nothing and leaves the baseline in place, so the next run covers the same range.
+`scripts/ci_run.sh` is the same path for a local dry run.
+
 ## What is maintained
 
 `<WIKI>/AGENTS/index.md` and `.state.json` are required. Optional pages answer navigation questions;

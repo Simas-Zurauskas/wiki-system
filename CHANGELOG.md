@@ -7,6 +7,17 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v33 — 2026-11-25
+
+**Unattended refresh in CI.** New `ci` procedure (`ci.md`), `scripts/ci.py` (`prepare` plans without a
+model and captures the snapshot; `conclude` validates the model's `result.json`, confines edits to the
+map, rejects source changes, finalizes and writes `status.json`), `scripts/ci_run.sh` and a composite
+`action.yml`. The action clones state-listed source repos with a caller token, fetches baselines that
+are not on the default branch (for example pre-squash commits), runs Claude Code only when needed in
+a scrubbed environment with narrow permissions and caps, and reports status, pages, commit ranges and
+cost. It never commits or pushes. `context` gains a CI variant of the refresh line. Multi-repo maps
+keep their partial/unavailable semantics. No schema change.
+
 ## v32 — 2026-11-10
 
 **Fresh initialization, without an automatic migration project.** `init` writes a new map from

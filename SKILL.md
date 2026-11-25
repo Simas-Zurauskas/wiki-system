@@ -1,6 +1,6 @@
 ---
 name: wiki-system
-description: 'Create and maintain compact source-backed codebase maps for coding agents. Use when asked to document a codebase for agents, refresh its navigation map, check documentation freshness, or connect Codex/Claude entry instructions. Commands: init, update, update --full, check, context; aliases: recheck, recheck diff, claude. Supports Git repositories, linked worktrees and sibling-repo workspaces. Documentation refreshes only on request; ordinary coding reads relevant pointers without regenerating the map.'
+description: 'Create and maintain compact source-backed codebase maps for coding agents. Use when asked to document a codebase for agents, refresh its navigation map, check documentation freshness, or connect Codex/Claude entry instructions. Commands: init, update, update --full, check, context; aliases: recheck, recheck diff, claude. Supports Git repositories, linked worktrees and sibling-repo workspaces. Documentation refreshes only on request or through a project's own CI wiring (ci); ordinary coding reads relevant pointers without regenerating the map.'
 ---
 
 # wiki-system
@@ -20,9 +20,11 @@ This skill and its task prompt work standalone; `eng-rulebook` is an optional de
 | `recheck diff` | Alias for incremental `update`. |
 | `check` | Run the read-only checks below. No factual audit or fixes. |
 | `context`, `claude` | [Connect Codex/Claude instructions](context.md). |
+| `ci` | [Unattended refresh](ci.md), run by `action.yml` or `scripts/ci_run.sh`, never by hand. |
 
 Use `$wiki-system …` in Codex or `/wiki-system …` in Claude. Both use this source.
-No automatic audit, update, network check, install, commit or publishing. Requests for human/product
+No automatic audit, update, network check, install, commit or publishing; a project that wants
+refreshes after merges wires the [CI action](README.md#ci) itself and owns the commit. Requests for human/product
 wiki tracks are outside this agent-map workflow; existing documents are owner-owned inputs.
 
 ## Resolve the workspace before every command

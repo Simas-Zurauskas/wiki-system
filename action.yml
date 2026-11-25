@@ -1,0 +1,124 @@
+name: wiki-system map update
+description: Refresh a wiki-system agent map with Claude Code, unattended. Never commits or pushes; the caller decides what to publish.
+inputs:
+  map:
+    description: The map's AGENTS directory, relative to root (for example wiki-acme/AGENTS).
+    required: true
+  root:
+    description: Workspace root that holds the docs repo and the source repos side by side.
+    default: ${{ github.workspace }}
+  anthropic-api-key:
+    description: Anthropic API key. Used only by the model step, and only when an update is needed.
+    required: true
+  source-owner:
+    description: GitHub owner to clone source repos from. Repo names come from the map state. Empty to skip cloning.
+    default: ''
+  source-token:
+    description: Token with read access to the source repos, used only to clone them and fetch baselines. Never stored on disk.
+    default: ''
+  full:
+    description: "true revisits every documented area (update --full)."
+    default: 'false'
+  model:
+    description: Claude model ID.
+    default: claude-sonnet-5-5
+  max-turns:
+    description: Turn cap for the model run.
+    default: '150'
+  max-budget-usd:
+    description: Spend cap for the model run, in US dollars.
+    default: '2'
+  claude-code-version:
+    description: Claude Code CLI version to install.
+    default: '2.1.332'
+outputs:
+  status:
+    description: updated, no_change or failed.
+    value: ${{ steps.result.outputs.status }}
+  summary:
+    description: One-line summary of the change, or empty.
+    value: ${{ steps.result.outputs.summary }}
+  reason:
+    description: Why the run failed, or empty.
+    value: ${{ steps.result.outputs.reason }}
+  pages:
+    description: JSON list of changed map files, relative to the docs repo.
+    value: ${{ steps.result.outputs.pages }}
+  ranges:
+    description: 'JSON object {repo: {from, to}} of source commits this run covered; from is null when the baseline was unusable.'
+    value: ${{ steps.result.outputs.ranges }}
+  cost-usd:
+    description: Model cost estimate reported by Claude Code, or 0 when the model did not run.
+    value: ${{ steps.result.outputs.cost }}
+  status-file:
+    description: Path of the full status.json.
+    value: ${{ steps.result.outputs.file }}
+runs:
+  using: composite
+  steps:
+    - name: Clone source repos
+      if: inputs.source-token != '' && inputs.source-owner != ''
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.source-token }}
+        OWNER: ${{ inputs.source-owner }}
+        ROOT: ${{ inputs.root }}
+        MAP: ${{ inputs.map }}
+      run: |
+        set -euo pipefail
+        AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
+        echo "::add-mask::${AUTH#AUTHORIZATION: basic }"
+        python3 - "$ROOT/$MAP/.state.json" > "$RUNNER_TEMP/wiki-sources.txt" <<'EOF'
+        import json, sys
+        for repo, info in json.load(open(sys.argv[1]))["repos"].items():
+            if repo != ".":
+                print(repo, info.get("sha") or "-")
+        EOF
+        while read -r repo sha; do
+          dir="$ROOT/$repo"
+          if [ ! -d "$dir/.git" ]; then
+            git -c http.https://github.com/.extraheader="$AUTH" clone -q "https://github.com/$OWNER/$repo.git" "$dir" \
+              || { echo "::warning::could not clone $OWNER/$repo; it will be reported unavailable"; continue; }
+          fi
+          if [ "$sha" != "-" ] && ! git -C "$dir" cat-file -e "$sha^{commit}" 2>/dev/null; then
+            git -C "$dir" -c http.https://github.com/.extraheader="$AUTH" fetch -q origin "$sha" \
+              || echo "::warning::baseline $sha of $repo is not fetchable; that repo gets a full review"
+          fi
+        done < "$RUNNER_TEMP/wiki-sources.txt"
+
+    - name: Refresh the map
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        WIKI_MAP: ${{ inputs.root }}/${{ inputs.map }}
+        WIKI_ROOT: ${{ inputs.root }}
+        WIKI_WORK: ${{ runner.temp }}/wiki-ci
+        WIKI_FULL: ${{ inputs.full }}
+        WIKI_MODEL: ${{ inputs.model }}
+        WIKI_MAX_TURNS: ${{ inputs.max-turns }}
+        WIKI_MAX_BUDGET_USD: ${{ inputs.max-budget-usd }}
+        WIKI_CLAUDE_VERSION: ${{ inputs.claude-code-version }}
+      run: '"$GITHUB_ACTION_PATH/scripts/ci_run.sh" || true'
+
+    - name: Read the result
+      id: result
+      shell: bash
+      env:
+        FILE: ${{ runner.temp }}/wiki-ci/status.json
+      run: |
+        python3 - "$FILE" >> "$GITHUB_OUTPUT" <<'EOF'
+        import json, sys
+        try:
+            s = json.load(open(sys.argv[1]))
+        except (OSError, ValueError):
+            s = {"status": "failed", "reason": "no status.json was written"}
+        one = lambda v: " ".join(str(v or "").split())[:500]
+        print("status=" + one(s.get("status")))
+        print("summary=" + one(s.get("summary")))
+        print("reason=" + one(s.get("reason")))
+        print("pages=" + json.dumps(s.get("pages", [])))
+        print("ranges=" + json.dumps(s.get("ranges", {})))
+        print("cost=" + str((s.get("model") or {}).get("total_cost_usd") or 0))
+        print("file=" + sys.argv[1])
+        EOF
+        cat "$FILE" 2>/dev/null || true
