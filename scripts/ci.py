@@ -127,6 +127,8 @@ def prepare(agents, root, work, full):
         raise ValueError("snapshot capture failed: " + capture.stderr.strip())
     plan = {
         "decision": "update" if needs else "skip",
+        # Every repo is exactly at its baseline: nothing to record, so conclude leaves the map alone.
+        "current": not needs and bool(ranges) and all(r["from"] == r["to"] for r in ranges.values()),
         "mode": "full" if full or report["fallback_repos"] else "incremental",
         "agents": str(agents), "root": str(root), "wiki": str(top),
         "prompt_existed": (agents.parent / PROMPT).exists(),
@@ -212,6 +214,11 @@ def conclude(agents, root, work):
             return fail(status["summary"] or "the model reported a failure")
     if repo_state(root, plan["repos"]) != plan["repos"]:
         return fail("a source checkout changed during the run; source repos are read-only")
+    if plan.get("current"):
+        status.update(status="no_change", summary="Nothing new since the last update.", freshness="current")
+        atomic_json(work / "status.json", status)
+        print("status=no_change (already current; map untouched)")
+        return status
     top = Path(plan["wiki"])
     map_dir = in_top(agents, top).as_posix() + "/"
     allowed_prompt = None if plan["prompt_existed"] else in_top(agents.parent, top).joinpath(PROMPT).as_posix()

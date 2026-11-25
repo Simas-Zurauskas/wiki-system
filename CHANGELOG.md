@@ -7,6 +7,12 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v37 — 2026-11-25
+
+**No commit when nothing is new.** When every repo is exactly at its baseline, `conclude` reports
+`no_change` without finalizing, so a manual or replaced run makes no timestamp-only commit. A new
+commit with no relevant change still advances the baseline.
+
 ## v36 — 2026-11-25
 
 **No card reporting for empty ranges.** A run whose baseline already equals a repo's head (a manual

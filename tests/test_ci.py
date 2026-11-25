@@ -45,10 +45,22 @@ class CiTests(MapFixture):
         self.git("commit", "-qam", "change")
 
     def test_unchanged_source_skips_the_model_and_concludes_no_change(self):
+        before = (self.agents / ".state.json").read_bytes()
         self.ci("prepare")
         self.assertEqual(self.plan()["decision"], "skip")
+        self.assertTrue(self.plan()["current"])
         self.ci("conclude")
         self.assertEqual(self.status()["status"], "no_change")
+        self.assertEqual((self.agents / ".state.json").read_bytes(), before)
+
+    def test_new_commit_without_relevant_change_advances_the_baseline(self):
+        self.git("commit", "-q", "--allow-empty", "-m", "no file changes")
+        self.ci("prepare")
+        self.assertEqual(self.plan()["decision"], "skip")
+        self.assertFalse(self.plan()["current"])
+        self.ci("conclude")
+        state = json.loads((self.agents / ".state.json").read_text())
+        self.assertEqual(state["repos"]["app"]["sha"], self.git("rev-parse", "HEAD").stdout.strip())
 
     def test_changed_source_needs_the_model_and_records_the_range(self):
         self.change_source()
