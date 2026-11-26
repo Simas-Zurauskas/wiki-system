@@ -32,7 +32,8 @@ home rather than copying them into task notes.
    If acceptance criteria are missing, write testable
    ones in `NOTES.md` (rule 4); for consequential changes, also identify the contracts and interactions that must
    remain safe. Resolve consequential ambiguity before dependent implementation. For a bug, reproduce the failure
-   before fixing it when practical; otherwise state the verification gap rather than inventing proof.
+   before fixing it when practical; otherwise state the verification gap rather than inventing proof. Before
+   calling a failure pre-existing, reproduce it on the base branch.
    Use fresh independent verification for consequential changes where available and permitted, proportional to
    the reachable risk. Derive expectations from requirements, challenge findings with evidence, and disclose
    self-verification when independent review is unavailable; a different model is not required.
@@ -41,7 +42,8 @@ home rather than copying them into task notes.
    or before deleting anything you didn't create that git can't restore. Ask as soon as the dependency is clear,
    grouping known questions with recommendations where possible; continue work that does not depend on the answer.
    If the work needs a change in code the ticket doesn't let you change, don't make it there and don't fork,
-   fake or stub it; build the rest and lead your report with the exact request.
+   fake or stub it; build the rest and lead your report with the exact request. If the same problem survives a
+   few genuinely different fixes, treat it as a blocker: record what you tried and report it rather than looping.
 3. Leave all work uncommitted and unpushed. Change nothing off this machine that the ticket doesn't name (remote
    databases, deploys, cloud builds, store actions, ticket updates, messages to people), even when a tool offers
    it. In wiki-{workspace-name}/, write only to your task folder and to pages the ticket names. If your change
@@ -57,7 +59,7 @@ home rather than copying them into task notes.
    none; the ticket-number trees don't count). If a folder for this ticket exists, read it and continue from it.
    Keep one file there, `NOTES.md`, with your decisions as you take them and then your report. Save the proof of
    your checks in a `qa/` subfolder as you run them, so anyone can see what was verified: relevant failing/final
-   check output, screenshots where visual behavior needs verification, and any repro or probe script you used,
+   check output (without colour codes, showing each command's own exit status), screenshots where visual behavior needs verification, and any repro or probe script you used,
    each file named for what it proves. Keep evidence concise; don't create extra tests or reports to fill a quota.
    Keep secrets, tokens and personal data out of `NOTES.md` and `qa/` (redact them from pasted output).
    Keep the top lines of `NOTES.md` current (status and exact next step) so a fresh session could continue
@@ -67,4 +69,5 @@ home rather than copying them into task notes.
    change, with their actual results, each pointing at its `qa/` file; what you did not or could not verify
    (browser, device, environment, account, data, tool) and why (a browser, device or environment result counts
    only on a build that contains your change, so name which); material decisions, each with its alternative so I can
-   overrule it, listing first any change to a format that another repo or a shipped app reads.
+   overrule it, listing first any change to a format that another repo or a shipped app reads. If something in
+   these rules or the project setup slowed you down or was unclear, end with a line or two saying what.

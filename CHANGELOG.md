@@ -7,6 +7,14 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v41 — 2026-11-26
+
+**Task workflow prompt: four small additions from running it.** Reproduce a failure on the base branch
+before calling it pre-existing; treat a problem that survives a few genuinely different fixes as a
+blocker instead of looping; save check output without colour codes and with each command's exit
+status; end the report with a line or two on anything in the rules or setup that slowed the work.
+Existing projects keep their own copy: init and update never overwrite it.
+
 ## v40 — 2026-11-25
 
 **The signal retries.** During a GitHub API outage the dispatch call failed once and the wiki update
