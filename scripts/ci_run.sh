@@ -39,7 +39,8 @@ if [ "$decision" = "update" ]; then
 Skill directory: ${SKILL}
 Workspace root (your working directory): ${ROOT}
 Map directory: ${MAP}
-Work directory: ${WORK} (read brief.md there; write result.json there)"
+Work directory: ${WORK} (read brief.md there; write result.json there)
+Your tools are Read, Glob, Grep, Edit and Write. result.json does not exist yet: create it with Write."
   # A scrubbed environment and an empty home: no user settings, inherited session or other
   # secret reaches the model, so the permission rules below are the whole policy. The model has no
   # shell: prepare hands it the diff as a file and this script runs the structure check for it.

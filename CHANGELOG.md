@@ -7,6 +7,13 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v42 — 2026-11-26
+
+**The wiki model is told how to write its result.** One amazingOS run edited the map and then stopped
+without `result.json`, saying the Write tool was not available (it was; it never tried it), so the
+update failed and nothing was published. The prompt now names the tools and says `result.json` does
+not exist yet and must be created with Write.
+
 ## v41 — 2026-11-26
 
 **Task workflow prompt: four small additions from running it.** Reproduce a failure on the base branch
