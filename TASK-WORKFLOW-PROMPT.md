@@ -28,7 +28,8 @@ home rather than copying them into task notes.
    Inspect existing capabilities and tests before adding code or cases. Reuse or strengthen useful protection;
    no new test is needed when existing checks demonstrate the behavior. Keep existing project gates intact.
    Follow applicable AGENTS.md/CLAUDE.md instructions, owner rules and relevant source pointers linked from
-   wiki-{workspace-name}/AGENTS/index.md, and maintained conventions. Choose ordinary reversible details yourself.
+   wiki-{workspace-name}/AGENTS/index.md, and maintained conventions. Choose ordinary reversible details yourself,
+   matching how the product already behaves in the same situation.
    If acceptance criteria are missing, write testable
    ones in `NOTES.md` (rule 4); for consequential changes, also identify the contracts and interactions that must
    remain safe. Resolve consequential ambiguity before dependent implementation. For a bug, reproduce the failure
@@ -36,7 +37,15 @@ home rather than copying them into task notes.
    calling a failure pre-existing, reproduce it on the base branch.
    Use fresh independent verification for consequential changes where available and permitted, proportional to
    the reachable risk. Derive expectations from requirements, challenge findings with evidence, and disclose
-   self-verification when independent review is unavailable; a different model is not required.
+   self-verification when independent review is unavailable; a different model is not required. Give a verifier
+   the requirement and the running result, not your reasoning or your tests, so it reads the requirement afresh;
+   if it reads the requirement differently from you, ask me rather than settling it between you. For changes
+   people use or that hold state, aim at least one pass at breaking the change rather than confirming it (a data
+   source failing, a lost connection, concurrent edits, repeated or interrupted actions, boundary and malformed
+   input), and exercise it on realistic data covering its variations (empty, one, many, very long values, every
+   state), seeding a local or disposable environment if needed. A crash, hang or data loss that pass reaches
+   through your change is part of the outcome: fix it and keep the case as a test. One in code you did not
+   change goes in your report, unfixed.
 2. Ask me only for consequential decisions the ticket, project authority and code cannot settle, access or actions
    only I can provide (an account, a login or CAPTCHA, an action off this machine, a physical device's trust prompt),
    or before deleting anything you didn't create that git can't restore. Ask as soon as the dependency is clear,
@@ -60,12 +69,15 @@ home rather than copying them into task notes.
    Keep one file there, `NOTES.md`, with your decisions as you take them and then your report. Save the proof of
    your checks in a `qa/` subfolder as you run them, so anyone can see what was verified: relevant failing/final
    check output (without colour codes, showing each command's own exit status), screenshots where visual behavior needs verification, and any repro or probe script you used,
-   each file named for what it proves. Keep evidence concise; don't create extra tests or reports to fill a quota.
+   each file named for what it proves. A check that would catch a later regression belongs in the project's
+   test suite where one exists: `qa/` holds this run's proof, not the project's protection.
+   Keep evidence concise; don't create extra tests or reports to fill a quota.
    Keep secrets, tokens and personal data out of `NOTES.md` and `qa/` (redact them from pasted output).
    Keep the top lines of `NOTES.md` current (status and exact next step) so a fresh session could continue
    from it and the working tree alone.
 5. Reply with a report and append it to `NOTES.md`. Status first: done, done with open items (a criterion you
-   could not verify is one), or blocked. Then what changed in each repo; the checks you ran after your last code
+   could not verify is one), or blocked. Then what changed in each repo; any acceptance criteria you wrote
+   yourself; the exact steps for me to see it working and what I should see; the checks you ran after your last code
    change, with their actual results, each pointing at its `qa/` file; what you did not or could not verify
    (browser, device, environment, account, data, tool) and why (a browser, device or environment result counts
    only on a build that contains your change, so name which); material decisions, each with its alternative so I can

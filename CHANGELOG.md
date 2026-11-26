@@ -7,6 +7,20 @@ file is what tells the operator *what* changed between those versions.
 
 Introduced at v10; earlier versions are not chronicled here (see git history).
 
+## v43 — 2026-11-26
+
+**Task workflow prompt: lessons from an audit of agent-built work.** Six clauses added to existing
+rules, no new rules. Aim one pass at breaking a change people use or that holds state, on realistic
+data; a crash, hang or data loss that pass reaches through the change is fixed and kept as a test,
+while one in untouched code is reported, not fixed. An independent verifier gets the requirement and
+the running result, not the builder's reasoning, and a different reading of the requirement goes to
+the person. Reversible details follow how the product already behaves. A check that would catch a
+later regression goes into the project's test suite, not only into `qa/`. The report names any
+acceptance criteria the agent wrote itself and gives the steps to see the change working.
+Existing projects keep their own copy: init and update never overwrite it.
+
+**`SKILL.md`: the description's apostrophe is escaped**, so the front matter is valid YAML.
+
 ## v42 — 2026-11-26
 
 **The wiki model is told how to write its result.** One amazingOS run edited the map and then stopped

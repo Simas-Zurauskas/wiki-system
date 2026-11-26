@@ -1,6 +1,6 @@
 ---
 name: wiki-system
-description: 'Create and maintain compact source-backed codebase maps for coding agents. Use when asked to document a codebase for agents, refresh its navigation map, check documentation freshness, or connect Codex/Claude entry instructions. Commands: init, update, update --full, check, context; aliases: recheck, recheck diff, claude. Supports Git repositories, linked worktrees and sibling-repo workspaces. Documentation refreshes only on request or through a project's own CI wiring (ci); ordinary coding reads relevant pointers without regenerating the map.'
+description: 'Create and maintain compact source-backed codebase maps for coding agents. Use when asked to document a codebase for agents, refresh its navigation map, check documentation freshness, or connect Codex/Claude entry instructions. Commands: init, update, update --full, check, context; aliases: recheck, recheck diff, claude. Supports Git repositories, linked worktrees and sibling-repo workspaces. Documentation refreshes only on request or through a project''s own CI wiring (ci); ordinary coding reads relevant pointers without regenerating the map.'
 ---
 
 # wiki-system
